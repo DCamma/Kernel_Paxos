@@ -139,10 +139,16 @@ on_deliver(unsigned iid, char* value, size_t size, void* arg)
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+on_stats(struct timer_list* t)
+{
+  struct client* c = from_timer(c, t, stats_ev);
+#else
 on_stats(unsigned long arg)
 {
   struct client* c = (struct client*)arg;
-  long           mbps =
+#endif
+  long mbps =
     (c->stats.delivered_count * c->send_buffer_len * 8) / (1024 * 1024);
 
   LOG_INFO("%d val/sec, %ld Mbps", c->stats.delivered_count, mbps);
@@ -181,7 +187,11 @@ start_client(int proposer_id, int value_size)
   c->send_buffer_len = sizeof(struct client_value) + value_size;
   random_string(c->val->value, value_size);
 
+#ifdef HAVE_TIMER_SETUP
+  timer_setup(&c->stats_ev, on_stats, 0);
+#else
   setup_timer(&c->stats_ev, on_stats, (unsigned long)c);
+#endif
   c->stats_interval = (struct timeval){ 1, 0 };
   mod_timer(&c->stats_ev, jiffies + timeval_to_jiffies(&c->stats_interval));
 

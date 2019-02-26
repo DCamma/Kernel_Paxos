@@ -25,5 +25,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- #include "evpaxos/paxos.h"
- #include "evpaxos/config.h"
+#include "evpaxos/config.h"
+#include "evpaxos/paxos.h"
+
+#if defined(timer_setup) && defined(from_timer)
+#define HAVE_TIMER_SETUP
+#endif

@@ -66,13 +66,19 @@ evlearner_send_hi(struct peers* p)
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+evlearner_check_holes(struct timer_list* t)
+{
+  struct evlearner* l = from_timer(l, t, stats_ev);
+#else
 evlearner_check_holes(unsigned long arg)
 {
-  // paxos_log_debug("Learner: Checking holes");
-
-  paxos_repeat      msg;
-  int               chunks = 10;
   struct evlearner* l = (struct evlearner*)arg;
+#endif
+  // paxos_log_debug("Learner: Checking holes");
+  paxos_repeat msg;
+  int          chunks = 10;
+
   if (learner_has_holes(l->state, &msg.from, &msg.to)) {
     if ((msg.to - msg.from) > chunks)
       msg.to = msg.from + chunks;
@@ -139,9 +145,12 @@ evlearner_init_internal(struct evpaxos_config* config, struct peers* peers,
                          learner);
   peers_add_subscription(peers, PAXOS_ACCEPTOR_OK, evlearner_handle_ok,
                          learner);
-
+#ifdef HAVE_TIMER_SETUP
+  timer_setup(&learner->stats_ev, evlearner_check_holes, 0);
+#else
   setup_timer(&learner->stats_ev, evlearner_check_holes,
               (unsigned long)learner);
+#endif
   learner->stats_interval = (struct timeval){ 0, 100000 }; // 100 ms
   mod_timer(&learner->stats_ev,
             jiffies + timeval_to_jiffies(&learner->stats_interval));

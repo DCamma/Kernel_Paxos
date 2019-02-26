@@ -170,10 +170,15 @@ evproposer_preexec_once(struct evproposer* arg)
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+evproposer_check_timeouts(struct timer_list* t)
+{
+  struct evproposer* p = from_timer(p, t, stats_ev);
+#else
 evproposer_check_timeouts(unsigned long arg)
 {
-
-  struct evproposer*       p = (struct evproposer*)arg;
+  struct evproposer* p = (struct evproposer*)arg;
+#endif
   struct timeout_iterator* iter = proposer_timeout_iterator(p->state);
 
   paxos_prepare pr;
@@ -191,7 +196,6 @@ evproposer_check_timeouts(unsigned long arg)
   timeout_iterator_free(iter);
   mod_timer(&p->stats_ev, jiffies + timeval_to_jiffies(&p->stats_interval));
 }
-
 struct evproposer*
 evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 {
@@ -220,8 +224,12 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
   peers_add_subscription(peers, PAXOS_ACCEPTOR_STATE,
                          evproposer_handle_acceptor_state, proposer);
 
+#ifdef HAVE_TIMER_SETUP
+  timer_setup(&proposer->stats_ev, evproposer_check_timeouts, 0);
+#else
   setup_timer(&proposer->stats_ev, evproposer_check_timeouts,
               (unsigned long)proposer);
+#endif
   proposer->stats_interval =
     (struct timeval){ paxos_config.proposer_timeout, 0 };
   mod_timer(&proposer->stats_ev,
