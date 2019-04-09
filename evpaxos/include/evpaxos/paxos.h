@@ -139,7 +139,8 @@ extern "C"
    * Initializes a acceptor with a given id (which MUST be unique),
    * a config file and a libevent event_base.
    */
-  struct evacceptor* evacceptor_init(int id, char* if_name, char* path);
+  struct evacceptor* evacceptor_init(deliver_function f, int id, char* if_name,
+                                     char* path);
 
   /**
    * Frees the memory allocated by the acceptor.

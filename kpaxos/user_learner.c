@@ -133,6 +133,7 @@ main(int argc, char* argv[])
   struct server* serv = server_new();
   serv->ethop.if_name = "enp0s3";
   serv->fileop.char_device_id = 0;
+  serv->fileop.char_device_name = "/dev/paxos/klearner0";
   new_connection_list(serv);
 
   check_args(argc, argv, serv);

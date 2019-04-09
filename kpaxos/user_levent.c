@@ -23,7 +23,7 @@ write_file(int fd, void* data, size_t size)
 int
 open_file(struct chardevice* c)
 {
-  char*  name = "/dev/paxos/klearner0";
+  char*  name = c->char_device_name;
   size_t strl = strlen(name) + 1;
   char*  fname = malloc(strl);
   memcpy(fname, name, strl);

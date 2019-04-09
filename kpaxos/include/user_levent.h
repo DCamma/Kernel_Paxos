@@ -19,8 +19,9 @@ enum user_communication
 // Common structs
 struct chardevice
 {
-  int fd;
-  int char_device_id;
+  int   fd;
+  int   char_device_id;
+  char* char_device_name;
 };
 
 struct eth_connection

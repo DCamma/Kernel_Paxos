@@ -29,6 +29,7 @@ ACC_OBJ= \
  	kpaxos/kacceptor.o \
 	evpaxos/evacceptor.o \
 	paxos/acceptor.o \
+	kpaxos/kernel_device.o \
 	$(PAX_OBJ)
 
 LEARN_OBJ= \
@@ -40,7 +41,7 @@ LEARN_OBJ= \
 
 REP_OBJ= \
 	kpaxos/kernel_device.o \
-  kpaxos/kreplica.o \
+	kpaxos/kreplica.o \
 	evpaxos/evlearner.o \
 	evpaxos/evproposer.o \
 	evpaxos/evacceptor.o \
@@ -74,15 +75,17 @@ C_COMP:= -std=c99
 G_COMP:= -std=gnu99
 USR_FLAGS:= -Wall -D user_space
 USR_SRCS := $(wildcard kpaxos/user_*.c)
-USR_CL := $(filter-out kpaxos/user_learner.c, $(USR_SRCS))
-USR_LEARN := $(filter-out kpaxos/user_client.c, $(USR_SRCS))
+USR_CL := $(filter-out kpaxos/user_learner.c kpaxos/user_acceptor.c, $(USR_SRCS))
+USR_LEARN := $(filter-out kpaxos/user_client.c kpaxos/user_acceptor.c, $(USR_SRCS))
+USR_ACC := $(filter-out kpaxos/user_learner.c kpaxos/user_client.c, $(USR_SRCS))
 USRC_OBJS := $(patsubst kpaxos/%.c, $(BUILD_DIR)/%.o, $(USR_CL))
 USRL_OBJS := $(patsubst kpaxos/%.c, $(BUILD_DIR)/%.o, $(USR_LEARN))
+USRA_OBJS := $(patsubst kpaxos/%.c, $(BUILD_DIR)/%.o, $(USR_ACC))
 
 EXTRA_CFLAGS:= -I$(PWD)/kpaxos/include -I$(PWD)/paxos/include -I$(PWD)/evpaxos/include -I$(HOME)/local/include
 ccflags-y:= $(G_COMP) -Wall -Wno-declaration-after-statement -Wframe-larger-than=3100 -O3
 
-all: $(BUILD_DIR) kernel_app user_client user_learner
+all: $(BUILD_DIR) kernel_app user_client user_learner user_acceptor
 
 kernel_app: $(BUILD_DIR_MAKEFILE)
 	make -C $(KDIR) M=$(BUILD_DIR) src=$(PWD) modules
@@ -103,6 +106,12 @@ user_client: $(USRC_OBJS)
 
 user_learner: $(USRL_OBJS)
 	$(CC) $(USR_FLAGS) $(EXTRA_CFLAGS) -o $(BUILD_DIR)/$@ $^
+
+$(BUILD_DIR)/user_acceptor.o: kpaxos/user_acceptor.c
+	$(CC) $(G_COMP) $(USR_FLAGS) $(EXTRA_CFLAGS) -c $< -o $@
+
+user_acceptor: $(USRA_OBJS)
+	$(CC) -o build/$@ $^
 
 ###########################################################################
 clean:

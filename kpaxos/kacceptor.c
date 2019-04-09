@@ -1,3 +1,5 @@
+#include "evpaxos.h"
+#include "kernel_device.h"
 #include <asm/atomic.h>
 #include <linux/init.h>
 #include <linux/kthread.h>
@@ -5,8 +7,6 @@
 #include <linux/time.h>
 #include <linux/udp.h>
 #include <net/sock.h>
-
-#include "evpaxos.h"
 
 const char* MOD_NAME = "KAcceptor";
 
@@ -25,9 +25,16 @@ MODULE_PARM_DESC(path, "The config file position, default ./paxos.conf");
 static struct evacceptor* acc = NULL;
 
 static void
+on_deliver(unsigned int iid, char* value, size_t size, void* arg)
+{
+  kset_message(value, size); // from klearner, change this
+}
+
+static void
 start_acceptor(int id)
 {
-  acc = evacceptor_init(id, if_name, path);
+  kdevchar_init(id, "kacceptor");
+  acc = evacceptor_init(on_deliver, id, if_name, path);
   if (acc == NULL) {
     LOG_ERROR("Could not start the acceptor\n");
   }
@@ -44,10 +51,13 @@ static int __init
 static void __exit
             acceptor_exit(void)
 {
+  kdevchar_exit();
   if (acc != NULL)
     evacceptor_free(acc);
   LOG_INFO("Module unloaded");
 }
 
-module_init(init_acceptor) module_exit(acceptor_exit) MODULE_LICENSE("GPL");
+module_init(init_acceptor);
+module_exit(acceptor_exit);
+MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Emanuele Giuseppe Esposito");

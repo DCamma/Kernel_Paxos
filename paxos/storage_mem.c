@@ -26,6 +26,7 @@
  */
 
 #include "common.h"
+#include "kernel_device.h"
 #include "storage.h"
 #include <linux/if_ether.h>
 #include <linux/vmalloc.h>
@@ -74,6 +75,9 @@ mem_storage_close(void* handle)
 static int
 mem_storage_tx_begin(void* handle)
 {
+  char c[] = "mem storage tx begin";
+  kset_message(c, sizeof(c));
+  paxos_log_debug("CD: mem_storage_tx_begin - %lu", sizeof(c));
   return 0;
 }
 

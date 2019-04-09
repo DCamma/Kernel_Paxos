@@ -34,6 +34,7 @@
 
 struct evacceptor
 {
+  deliver_function  delfun;
   struct peers*     peers;
   struct acceptor*  state;
   struct timer_list stats_ev;
@@ -163,7 +164,8 @@ send_acceptor_state(unsigned long arg)
 }
 
 struct evacceptor*
-evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
+evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p,
+                         deliver_function f)
 {
   struct evacceptor* acceptor;
 
@@ -172,6 +174,7 @@ evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
     return NULL;
   }
   memset(acceptor, 0, sizeof(struct evacceptor));
+  acceptor->delfun = f;
   acceptor->state = acceptor_new(id);
   acceptor->peers = p;
 
@@ -197,7 +200,7 @@ evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
 }
 
 struct evacceptor*
-evacceptor_init(int id, char* if_name, char* path)
+evacceptor_init(deliver_function f, int id, char* if_name, char* path)
 {
   struct evpaxos_config* config = evpaxos_config_read(path);
   if (config == NULL)
@@ -215,7 +218,7 @@ evacceptor_init(int id, char* if_name, char* path)
   if (peers == NULL)
     return NULL;
   printall(peers, "Acceptor");
-  struct evacceptor* acceptor = evacceptor_init_internal(id, config, peers);
+  struct evacceptor* acceptor = evacceptor_init_internal(id, config, peers, f);
   peers_subscribe(peers);
   evpaxos_config_free(config);
   return acceptor;

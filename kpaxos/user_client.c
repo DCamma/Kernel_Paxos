@@ -173,6 +173,7 @@ check_args(int argc, char* argv[], struct client* cl, char** path)
       case 'c':
         use_chardevice = 1;
         cl->fileop.char_device_id = atoi(optarg);
+        cl->fileop.char_device_name = "/dev/paxos/klearner0";
         break;
       case 'l':
         use_socket = 1;
