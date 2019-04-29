@@ -26,6 +26,7 @@
  */
 
 #include "acceptor.h"
+#include "kernel_user_message.h"
 #include "storage.h"
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -89,6 +90,7 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
       storage_tx_abort(&a->store);
       return 0;
     }
+    set_message(&acc, 1);
   }
   if (storage_tx_commit(&a->store) != 0)
     return 0;

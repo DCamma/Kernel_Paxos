@@ -30,6 +30,7 @@ ACC_OBJ= \
 	evpaxos/evacceptor.o \
 	paxos/acceptor.o \
 	kpaxos/kernel_device.o \
+	kpaxos/kernel_user_message.o\
 	$(PAX_OBJ)
 
 LEARN_OBJ= \
@@ -49,6 +50,7 @@ REP_OBJ= \
 	paxos/learner.o \
 	paxos/proposer.o \
 	evpaxos/evreplica.o \
+	kpaxos/kernel_user_message.o\
 	$(PAX_OBJ)
 
 ################# MODIFY HERE FOR MORE MODULES ##############
@@ -111,7 +113,8 @@ $(BUILD_DIR)/user_acceptor.o: kpaxos/user_acceptor.c
 	$(CC) $(G_COMP) $(USR_FLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 user_acceptor: $(USRA_OBJS)
-	$(CC) -o build/$@ $^
+	gcc -Wall -g -L/usr/lib/ -Ikpaxos/include kpaxos/storage_lmdb.c -llmdb -c -o $(BUILD_DIR)/storage_lmdb.o
+	$(CC) -o build/$@ $(BUILD_DIR)/storage_lmdb.o -L/usr/lib/ -llmdb $^
 
 ###########################################################################
 clean:

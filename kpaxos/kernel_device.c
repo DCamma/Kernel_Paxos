@@ -88,6 +88,7 @@ kdev_read(struct file* filep, char* buffer, size_t len, loff_t* offset)
 ssize_t
 kdev_write(struct file* filep, const char* buffer, size_t len, loff_t* offset)
 {
+  paxos_log_debug("Received from user: %s\n", buffer);
   if (working == 0)
     return -1;
 

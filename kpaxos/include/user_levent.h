@@ -71,7 +71,6 @@ struct client
 };
 
 extern int  open_file(struct chardevice* c);
-extern void write_file(int fd, void* data, size_t size);
 extern void usage(const char* name, int client);
 
 extern struct server* server_new();

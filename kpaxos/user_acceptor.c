@@ -2,7 +2,12 @@
 #include "poll.h"
 #include "user_eth.h"
 #include "user_levent.h"
+#include "user_storage.h"
+#include <lmdb.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 static int stop = 1;
 
@@ -15,14 +20,17 @@ stop_execution(int signo)
 static void
 unpack_message(struct server* serv, size_t len)
 {
-  // struct user_msg* mess = (struct user_msg*)serv->ethop.rec_buffer;
-  // struct client_value* val = (struct client_value*)mess->value;
-  char* val = (char*)serv->ethop.rec_buffer;
-  printf("Unpack message, value: [%s]\n", val);
-  // printf("Client received value %.16s with %zu bytes\n", val);
-  // struct connection* conn = find_connection(serv, val->client_id);
-  // if (conn)
-  // eth_sendmsg(&serv->ethop, conn->address, mess, len);
+  struct user_msg*       mess = (struct user_msg*)serv->ethop.rec_buffer;
+  struct paxos_accepted* acc = (struct paxos_accepted*)mess->value;
+
+  printf("[user_acceptor] acc->aid:          [%lu]\n", (unsigned long)acc->aid);
+  printf("[user_acceptor] acc->iid:          [%lu]\n", (unsigned long)acc->iid);
+  printf("[user_acceptor] acc->promise_iid:  [%lu]\n",
+         (unsigned long)acc->promise_iid);
+  printf("[user_acceptor] acc->ballot:       [%lu]\n",
+         (unsigned long)acc->ballot);
+  printf("[user_acceptor] acc->value_ballot: [%lu]\n",
+         (unsigned long)acc->value_ballot);
 }
 
 static void
@@ -33,28 +41,17 @@ read_file(struct server* serv)
     return;
 
   if (len == 0) {
-    printf("Stopped by kernel module\n");
+    printf("[user_acceptor] Stopped by kernel module\n");
     stop = 0;
   }
-  printf("message len: %d\n", len);
-  for (int i = 0; i < 8; i++) {
-    printf("%d, ", (int)*(serv->ethop.rec_buffer + i));
-    // printf("%s\n", rec_buffer + i);
-  }
-  printf("\n%s\n", (serv->ethop.rec_buffer + 8));
-  // unpack_message(serv, len);
+  unpack_message(serv, len);
 }
 
 static void
 make_acceptor(struct server* serv)
 {
+  printf("[user_acceptor] Make acceptor\n");
   struct pollfd pol[1]; // 1 events: socket and file
-
-  // chardevice
-  if (open_file(&serv->fileop)) {
-    printf("Debug-C: goto cleanup");
-    goto cleanup;
-  }
 
   pol[0].fd = serv->fileop.fd;
   pol[0].events = POLLIN;
@@ -65,9 +62,24 @@ make_acceptor(struct server* serv)
       read_file(serv);
     }
   }
+}
 
-cleanup:
-  server_free(serv);
+int
+acceptor_write_file(struct server* serv)
+{
+  printf("[user_acceptor] Acceptor write to LKM\n");
+  char message[] = "User app ready\n";
+
+  // Send the string to the LKM
+  int ret = write(serv->fileop.fd, message, sizeof(message));
+
+  if (ret < 0) {
+    perror("Failed to write the message to the device.");
+    return -1;
+  }
+  printf("[user_acceptor] Ret: %d\n", ret);
+  make_acceptor(serv);
+  return 0;
 }
 
 static void
@@ -106,11 +118,33 @@ main(int argc, char* argv[])
 
   check_args(argc, argv, serv);
 
-  printf("if_name %s\n", serv->ethop.if_name);
-  printf("chardevice /dev/paxos/kacceptor%c\n",
+  struct lmdb_storage* stor = lmdb_storage_new(serv->fileop.char_device_id);
+  if (lmdb_storage_open(stor) != 0) {
+    printf("[user_acceptor] lmdb_storage_open failed\ngoto cleanup\n");
+    goto cleanup;
+  }
+
+  printf("[user_acceptor] lmdb_storage_open ok\n");
+
+  printf("[user_acceptor] if_name %s\n", serv->ethop.if_name);
+  printf("[user_acceptor] chardevice /dev/paxos/kacceptor%c\n",
          serv->fileop.char_device_id + '0');
   signal(SIGINT, stop_execution);
-  make_acceptor(serv);
 
+  if (open_file(&serv->fileop)) {
+    printf("[user_acceptor] Failed to open chardev\n");
+    goto cleanup;
+  }
+
+  // if (acceptor_write_file(serv)) {
+  //   printf("[user_acceptor] acceptor_write_file failed");
+  //   goto cleanup;
+  // }
+  make_acceptor(serv);
+  return 0;
+
+cleanup:
+  server_free(serv);
+  free(stor);
   return 0;
 }

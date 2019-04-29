@@ -70,7 +70,7 @@ stats_get_count()
 void
 stats_print()
 {
-  LOG_INFO("Statistics with %d entries average of %ld us", count,
+  LOG_INFO("Statistics with %ld entries average of %ld us", count,
            stats_get_avg());
 }
 

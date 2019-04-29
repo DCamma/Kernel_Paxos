@@ -40,6 +40,18 @@ read_file(struct server* serv)
   unpack_message(serv, len);
 }
 
+void
+write_file(int fd, void* data, size_t size)
+{
+  if (fd < 0) {
+    return;
+  }
+  int ret = write(fd, data, size);
+  if (ret < 0) {
+    perror("Failed to write the message to the device");
+  }
+}
+
 static void
 change_conn_status(struct server* serv, char* mess, uint8_t dest_addr[ETH_ALEN])
 {

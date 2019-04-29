@@ -61,6 +61,18 @@ read_file(struct client* cl)
 }
 
 void
+write_file(int fd, void* data, size_t size)
+{
+  if (fd < 0) {
+    return;
+  }
+  int ret = write(fd, data, size);
+  if (ret < 0) {
+    perror("Failed to write the message to the device");
+  }
+}
+
+void
 read_socket(struct client* cl)
 {
   int*       buff = (int*)cl->ethop.rec_buffer;
