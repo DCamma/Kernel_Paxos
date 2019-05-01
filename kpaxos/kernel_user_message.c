@@ -15,7 +15,7 @@ struct s_message
 int msg_id = 0;
 
 void
-set_message(paxos_accepted* acc, int i)
+paxos_accepted_to_user_space(paxos_accepted* acc, int i)
 {
   paxos_log_debug(">>> set_message");
   // paxos_log_debug("> [%u] [%u]", sizeof(struct
@@ -28,6 +28,7 @@ set_message(paxos_accepted* acc, int i)
 
   paxos_log_debug("> sizeof(paxos_accepted): [%u]", sizeof(paxos_accepted));
   paxos_log_debug("> sizeof(value):          [%u]", acc->value.paxos_value_len);
+  paxos_log_debug("> acc.ballot: [%d] <<<", acc->ballot);
 
   //   memcpy(m->value, acc, sizeof(paxos_accepted));
   kset_message(paxos_accepted_to_buffer(acc), sizeof(paxos_accepted));
@@ -36,6 +37,7 @@ set_message(paxos_accepted* acc, int i)
 
   msg_id++;
   paxos_log_debug("> msg_id: [%d]", msg_id);
+  paxos_log_debug("set_message <<<");
   // paxos_log_debug("> acc:    [%u, %u, %u]", acc->aid,
   // acc->iid,acc->promise_iid);
   //   char c[] = "test test test"; kset_message(c,sizeof(c));

@@ -18,7 +18,7 @@ stop_execution(int signo)
 }
 
 static void
-unpack_message(struct server* serv, size_t len)
+unpack_message(struct server* serv, size_t len, struct lmdb_storage* stor)
 {
   struct user_msg*       mess = (struct user_msg*)serv->ethop.rec_buffer;
   struct paxos_accepted* acc = (struct paxos_accepted*)mess->value;
@@ -31,10 +31,23 @@ unpack_message(struct server* serv, size_t len)
          (unsigned long)acc->ballot);
   printf("[user_acceptor] acc->value_ballot: [%lu]\n",
          (unsigned long)acc->value_ballot);
+
+  if (lmdb_storage_tx_begin(stor) != 0)
+    printf("\x1b[31m[user_acc: unpack_message] Error while: "
+           "lmdb_storage_tx_begin\x1b[0m\n");
+  if (lmdb_storage_put(stor, acc) != 0) {
+    lmdb_storage_tx_abort(stor);
+    printf("\x1b[31m[user_acc: unpack_message] Error while: "
+           "lmdb_storage_put\x1b[0m\n");
+  }
+  if (lmdb_storage_tx_commit(stor) != 0)
+    printf("\x1b[31m[user_acc: unpack_message] Error while: "
+           "lmdb_storage_tx_commit\x1b[0m\n");
+  printf("\x1b[32m[user_acc: unpack_message] lmdb_storage_put done\x1b[0m\n");
 }
 
 static void
-read_file(struct server* serv)
+read_file(struct server* serv, struct lmdb_storage* stor)
 {
   int len = read(serv->fileop.fd, serv->ethop.rec_buffer, ETH_DATA_LEN);
   if (len < 0)
@@ -44,14 +57,14 @@ read_file(struct server* serv)
     printf("[user_acceptor] Stopped by kernel module\n");
     stop = 0;
   }
-  unpack_message(serv, len);
+  unpack_message(serv, len, stor);
 }
 
 static void
-make_acceptor(struct server* serv)
+make_acceptor(struct server* serv, struct lmdb_storage* stor)
 {
   printf("[user_acceptor] Make acceptor\n");
-  struct pollfd pol[1]; // 1 events: socket and file
+  struct pollfd pol[1]; // 1 events: file
 
   pol[0].fd = serv->fileop.fd;
   pol[0].events = POLLIN;
@@ -59,7 +72,7 @@ make_acceptor(struct server* serv)
   while (stop) {
     poll(pol, 1, -1);
     if (pol[0].revents & POLLIN) { // communicate to chardevice via file
-      read_file(serv);
+      read_file(serv, stor);
     }
   }
 }
@@ -78,7 +91,6 @@ acceptor_write_file(struct server* serv)
     return -1;
   }
   printf("[user_acceptor] Ret: %d\n", ret);
-  make_acceptor(serv);
   return 0;
 }
 
@@ -124,7 +136,7 @@ main(int argc, char* argv[])
     goto cleanup;
   }
 
-  printf("[user_acceptor] lmdb_storage_open ok\n");
+  printf("\x1b[32m[user_acceptor] lmdb_storage_open ok\x1b[0m\n");
 
   printf("[user_acceptor] if_name %s\n", serv->ethop.if_name);
   printf("[user_acceptor] chardevice /dev/paxos/kacceptor%c\n",
@@ -136,11 +148,11 @@ main(int argc, char* argv[])
     goto cleanup;
   }
 
-  // if (acceptor_write_file(serv)) {
-  //   printf("[user_acceptor] acceptor_write_file failed");
-  //   goto cleanup;
-  // }
-  make_acceptor(serv);
+  if (acceptor_write_file(serv)) {
+    printf("[user_acceptor] acceptor_write_file failed");
+    goto cleanup;
+  }
+  make_acceptor(serv, stor);
   return 0;
 
 cleanup:

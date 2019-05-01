@@ -11,3 +11,7 @@ build/**
 .idea/
 cmake-build-debug/
 temp/
+paxos.conf
+out.txt
+paxos.conf
+stats-*.txt

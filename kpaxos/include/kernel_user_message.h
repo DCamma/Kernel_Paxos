@@ -3,4 +3,4 @@
 
 struct s_message;
 
-void set_message(paxos_accepted* acc, int i);
+void paxos_accepted_to_user_space(paxos_accepted* acc, int i);
