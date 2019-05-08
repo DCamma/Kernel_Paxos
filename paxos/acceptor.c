@@ -90,7 +90,7 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
       storage_tx_abort(&a->store);
       return 0;
     }
-    paxos_accepted_to_user_space(&acc, 1);
+    paxos_accepted_to_user_space(&acc);
   }
   if (storage_tx_commit(&a->store) != 0)
     return 0;
@@ -115,7 +115,7 @@ acceptor_receive_accept(struct acceptor* a, paxos_accept* req,
       storage_tx_abort(&a->store);
       return 0;
     }
-    paxos_accepted_to_user_space(&acc, 1);
+    paxos_accepted_to_user_space(&acc);
   } else {
     paxos_accepted_to_preempted(a->id, &acc, out);
   }

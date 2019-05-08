@@ -34,11 +34,7 @@ struct paxos_config paxos_config = { .verbosity = PAXOS_LOG_ERROR,
                                      .learner_catch_up = 0,
                                      .proposer_timeout = 1,
                                      .proposer_preexec_window = 128,
-                                     .storage_backend = PAXOS_MEM_STORAGE,
-                                     .trash_files = 0,
-                                     .lmdb_sync = 0,
-                                     .lmdb_env_path = "/tmp/acceptor",
-                                     .lmdb_mapsize = 10 * 1024 * 1024 };
+                                     .storage_backend = PAXOS_MEM_STORAGE };
 
 int
 paxos_quorum(int acceptors)

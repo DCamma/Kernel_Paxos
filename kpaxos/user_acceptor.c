@@ -9,7 +9,8 @@
 #include <string.h>
 #include <time.h>
 
-static int stop = 1;
+static int           stop = 1;
+struct lmdb_storage* stor;
 
 void
 stop_execution(int signo)
@@ -17,11 +18,21 @@ stop_execution(int signo)
   stop = 0;
 }
 
-static void
-unpack_message(struct server* serv, size_t len, struct lmdb_storage* stor)
+struct kernel_msg
 {
-  struct user_msg*       mess = (struct user_msg*)serv->ethop.rec_buffer;
-  struct paxos_accepted* acc = (struct paxos_accepted*)mess->value;
+  int  msg_type;
+  char value[0];
+};
+
+enum msg_types
+{
+  GET_STATE,
+  STORE_STATE,
+};
+
+static void
+store_paxos_accepted(paxos_accepted* acc)
+{
 
   printf("[user_acceptor] acc->aid:          [%lu]\n", (unsigned long)acc->aid);
   printf("[user_acceptor] acc->iid:          [%lu]\n", (unsigned long)acc->iid);
@@ -47,7 +58,30 @@ unpack_message(struct server* serv, size_t len, struct lmdb_storage* stor)
 }
 
 static void
-read_file(struct server* serv, struct lmdb_storage* stor)
+unpack_message(struct server* serv, size_t len)
+{
+  struct user_msg*   mess = (struct user_msg*)serv->ethop.rec_buffer;
+  struct kernel_msg* received_msg = (struct kernel_msg*)mess->value;
+  printf("msg_type: %d\n", received_msg->msg_type);
+
+  switch (received_msg->msg_type) {
+    case STORE_STATE:
+      store_paxos_accepted((struct paxos_accepted*)received_msg->value);
+      break;
+
+    case GET_STATE:
+
+      break;
+
+    default:
+      printf("[unpack_message] unrecognized msg_type: %d\n",
+             received_msg->msg_type);
+      break;
+  }
+}
+
+static void
+read_file(struct server* serv)
 {
   int len = read(serv->fileop.fd, serv->ethop.rec_buffer, ETH_DATA_LEN);
   if (len < 0)
@@ -57,11 +91,11 @@ read_file(struct server* serv, struct lmdb_storage* stor)
     printf("[user_acceptor] Stopped by kernel module\n");
     stop = 0;
   }
-  unpack_message(serv, len, stor);
+  unpack_message(serv, len);
 }
 
 static void
-make_acceptor(struct server* serv, struct lmdb_storage* stor)
+make_acceptor(struct server* serv)
 {
   printf("[user_acceptor] Make acceptor\n");
   struct pollfd pol[1]; // 1 events: file
@@ -72,7 +106,7 @@ make_acceptor(struct server* serv, struct lmdb_storage* stor)
   while (stop) {
     poll(pol, 1, -1);
     if (pol[0].revents & POLLIN) { // communicate to chardevice via file
-      read_file(serv, stor);
+      read_file(serv);
     }
   }
 }
@@ -130,7 +164,7 @@ main(int argc, char* argv[])
 
   check_args(argc, argv, serv);
 
-  struct lmdb_storage* stor = lmdb_storage_new(serv->fileop.char_device_id);
+  stor = lmdb_storage_new(serv->fileop.char_device_id);
   if (lmdb_storage_open(stor) != 0) {
     printf("[user_acceptor] lmdb_storage_open failed\ngoto cleanup\n");
     goto cleanup;
@@ -152,10 +186,11 @@ main(int argc, char* argv[])
     printf("[user_acceptor] acceptor_write_file failed");
     goto cleanup;
   }
-  make_acceptor(serv, stor);
+  make_acceptor(serv);
   return 0;
 
 cleanup:
+  lmdb_storage_close(stor);
   server_free(serv);
   free(stor);
   return 0;

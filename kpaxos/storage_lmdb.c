@@ -35,6 +35,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// TODO: generate config from config file
 struct paxos_config paxos_config = { .trash_files = 1,
                                      .lmdb_sync = 0,
                                      .lmdb_env_path = "/tmp/acceptor",
