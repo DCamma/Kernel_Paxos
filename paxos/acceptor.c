@@ -26,7 +26,7 @@
  */
 
 #include "acceptor.h"
-#include "kernel_user_message.h"
+#include "chardevice_message.h"
 #include "storage.h"
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -82,6 +82,7 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
   if (storage_tx_begin(&a->store) != 0)
     return 0;
   int found = storage_get_record(&a->store, req->iid, &acc);
+
   if (!found || acc.ballot <= req->ballot) {
     acc.aid = a->id;
     acc.iid = req->iid;
@@ -115,7 +116,6 @@ acceptor_receive_accept(struct acceptor* a, paxos_accept* req,
       storage_tx_abort(&a->store);
       return 0;
     }
-    paxos_accepted_to_user_space(&acc);
   } else {
     paxos_accepted_to_preempted(a->id, &acc, out);
   }

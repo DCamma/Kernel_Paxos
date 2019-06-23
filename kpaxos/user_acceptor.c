@@ -4,6 +4,7 @@
 #include "user_levent.h"
 #include "user_storage.h"
 #include <lmdb.h>
+#include <paxos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,28 +34,26 @@ enum msg_types
 static void
 store_paxos_accepted(paxos_accepted* acc)
 {
+  char error_msg[] = "\x1b[31m[user_acceptor] Error while:\x1b[0m";
 
-  printf("[user_acceptor] acc->aid:          [%lu]\n", (unsigned long)acc->aid);
-  printf("[user_acceptor] acc->iid:          [%lu]\n", (unsigned long)acc->iid);
-  printf("[user_acceptor] acc->promise_iid:  [%lu]\n",
+  printf("[user_acceptor] acc->aid:          [%zu]\n", (unsigned long)acc->aid);
+  printf("[user_acceptor] acc->iid:          [%zu]\n", (unsigned long)acc->iid);
+  printf("[user_acceptor] acc->promise_iid:  [%zu]\n",
          (unsigned long)acc->promise_iid);
-  printf("[user_acceptor] acc->ballot:       [%lu]\n",
+  printf("[user_acceptor] acc->ballot:       [%zu]\n",
          (unsigned long)acc->ballot);
-  printf("[user_acceptor] acc->value_ballot: [%lu]\n",
+  printf("[user_acceptor] acc->value_ballot: [%zu]\n",
          (unsigned long)acc->value_ballot);
 
   if (lmdb_storage_tx_begin(stor) != 0)
-    printf("\x1b[31m[user_acc: unpack_message] Error while: "
-           "lmdb_storage_tx_begin\x1b[0m\n");
+    printf("%s lmdb_storage_tx_begin\n", error_msg);
   if (lmdb_storage_put(stor, acc) != 0) {
     lmdb_storage_tx_abort(stor);
-    printf("\x1b[31m[user_acc: unpack_message] Error while: "
-           "lmdb_storage_put\x1b[0m\n");
+    printf("%s lmdb_storage_put\n", error_msg);
   }
   if (lmdb_storage_tx_commit(stor) != 0)
-    printf("\x1b[31m[user_acc: unpack_message] Error while: "
-           "lmdb_storage_tx_commit\x1b[0m\n");
-  printf("\x1b[32m[user_acc: unpack_message] lmdb_storage_put done\x1b[0m\n");
+    printf("%s lmdb_storage_tx_commit\n", error_msg);
+  printf("[user_acceptor] lmdb_storage_put done\n");
 }
 
 static void
@@ -62,8 +61,6 @@ unpack_message(struct server* serv, size_t len)
 {
   struct user_msg*   mess = (struct user_msg*)serv->ethop.rec_buffer;
   struct kernel_msg* received_msg = (struct kernel_msg*)mess->value;
-  printf("msg_type: %d\n", received_msg->msg_type);
-
   switch (received_msg->msg_type) {
     case STORE_STATE:
       store_paxos_accepted((struct paxos_accepted*)received_msg->value);
@@ -97,34 +94,31 @@ read_file(struct server* serv)
 static void
 make_acceptor(struct server* serv)
 {
-  printf("[user_acceptor] Make acceptor\n");
-  struct pollfd pol[1]; // 1 events: file
+  struct pollfd pol[1]; // 1 events: chardevice
 
   pol[0].fd = serv->fileop.fd;
   pol[0].events = POLLIN;
 
   while (stop) {
     poll(pol, 1, -1);
-    if (pol[0].revents & POLLIN) { // communicate to chardevice via file
+    if (pol[0].revents & POLLIN) {
       read_file(serv);
     }
   }
 }
 
 int
-acceptor_write_file(struct server* serv)
+acceptor_write_file(struct server* serv, char* msg, size_t msg_size)
 {
   printf("[user_acceptor] Acceptor write to LKM\n");
-  char message[] = "User app ready\n";
 
   // Send the string to the LKM
-  int ret = write(serv->fileop.fd, message, sizeof(message));
+  int ret = write(serv->fileop.fd, msg, msg_size);
 
   if (ret < 0) {
     perror("Failed to write the message to the device.");
     return -1;
   }
-  printf("[user_acceptor] Ret: %d\n", ret);
   return 0;
 }
 
@@ -163,15 +157,7 @@ main(int argc, char* argv[])
   new_connection_list(serv);
 
   check_args(argc, argv, serv);
-
-  stor = lmdb_storage_new(serv->fileop.char_device_id);
-  if (lmdb_storage_open(stor) != 0) {
-    printf("[user_acceptor] lmdb_storage_open failed\ngoto cleanup\n");
-    goto cleanup;
-  }
-
-  printf("\x1b[32m[user_acceptor] lmdb_storage_open ok\x1b[0m\n");
-
+  // printf("[user_acceptor] lmdb_storage_open\n");
   printf("[user_acceptor] if_name %s\n", serv->ethop.if_name);
   printf("[user_acceptor] chardevice /dev/paxos/kacceptor%c\n",
          serv->fileop.char_device_id + '0');
@@ -182,10 +168,18 @@ main(int argc, char* argv[])
     goto cleanup;
   }
 
-  if (acceptor_write_file(serv)) {
+  stor = lmdb_storage_new(serv->fileop.char_device_id);
+  if (lmdb_storage_open(stor) != 0) {
+    printf("[user_acceptor] lmdb_storage_open failed\ngoto cleanup\n");
+    goto cleanup;
+  }
+
+  char msg[] = "user_acceptor ready";
+  if (acceptor_write_file(serv, msg, sizeof(msg))) {
     printf("[user_acceptor] acceptor_write_file failed");
     goto cleanup;
   }
+
   make_acceptor(serv);
   return 0;
 

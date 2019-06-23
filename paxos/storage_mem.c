@@ -59,7 +59,6 @@ mem_storage_new(int acceptor_id)
 static int
 mem_storage_open(void* handle)
 {
-  paxos_log_debug("> lmdb_storage_open");
 
   return 0;
 }
@@ -77,27 +76,22 @@ mem_storage_close(void* handle)
 static int
 mem_storage_tx_begin(void* handle)
 {
-  paxos_log_debug("> mem_storage_tx_begin");
   return 0;
 }
 
 static int
 mem_storage_tx_commit(void* handle)
 {
-  paxos_log_debug("> mem_storage_tx_commit");
   return 0;
 }
 
 static void
 mem_storage_tx_abort(void* handle)
-{
-  paxos_log_debug("> mem_storage_tx_abort");
-}
+{}
 
 static int
 mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 {
-  paxos_log_debug("> mem_storage_get");
   struct mem_storage* s = handle;
   int                 idx = iid % MAX_SIZE;
 
@@ -117,7 +111,6 @@ mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 static int
 mem_storage_put(void* handle, paxos_accepted* acc)
 {
-  paxos_log_debug("> mem_storage_put");
   struct mem_storage* s = handle;
   int                 idx = acc->iid % MAX_SIZE;
 
@@ -134,7 +127,6 @@ mem_storage_put(void* handle, paxos_accepted* acc)
 static int
 mem_storage_trim(void* handle, iid_t iid)
 {
-  paxos_log_debug("> mem_storage_trim");
 
   struct mem_storage* s = handle;
   s->trim_iid = iid;
@@ -144,7 +136,6 @@ mem_storage_trim(void* handle, iid_t iid)
 static iid_t
 mem_storage_get_trim_instance(void* handle)
 {
-  paxos_log_debug("> mem_storage_get_trim_instance");
   struct mem_storage* s = handle;
   return s->trim_iid;
 }

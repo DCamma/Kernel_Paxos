@@ -147,6 +147,24 @@ evacceptor_handle_del(paxos_message* msg, void* arg, eth_address* src)
   peers_delete_learner(a->peers, src);
 }
 
+// static void
+// evacceptor_handle_user_msg(paxos_message* msg, void* arg, eth_address* src)
+// {
+//   paxos_log_debug("[evacceptor] message from user received");
+// }
+
+static void
+evacceptor_handle_client_value(paxos_message* msg, void* arg, eth_address* src)
+{
+  // struct evproposer*         proposer = arg;
+  // struct paxos_client_value* v = &msg->u.client_value;
+
+  // proposer_propose(proposer->state, v->value.paxos_value_val,
+  //                  v->value.paxos_value_len);
+  paxos_log_debug("Acceptor: received a CLIENT VALUE");
+  // try_accept(proposer);
+}
+
 static void
 #ifdef HAVE_TIMER_SETUP
 send_acceptor_state(struct timer_list* t)
@@ -185,6 +203,15 @@ evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p,
   peers_add_subscription(p, PAXOS_LEARNER_HI, evacceptor_handle_hi, acceptor);
   peers_add_subscription(p, PAXOS_LEARNER_DEL, evacceptor_handle_del, acceptor);
 
+  // peers_add_subscription(p, PAXOS_CLIENT_VALUE,
+  // evacceptor_handle_client_value,
+  //                        acceptor);
+
+  // if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
+  // peers_add_subscription(p, DATA_FROM_USER, evacceptor_handle_user_msg,
+  //                        acceptor);
+  // }
+
 #ifdef HAVE_TIMER_SETUP
   timer_setup(&acceptor->stats_ev, send_acceptor_state, 0);
 #else
@@ -205,6 +232,9 @@ evacceptor_init(deliver_function f, int id, char* if_name, char* path)
   struct evpaxos_config* config = evpaxos_config_read(path);
   if (config == NULL)
     return NULL;
+
+  // paxos_log_debug("[evacceptor_init] paxos_config.storage_backend: [%d]",
+  //                 paxos_config.storage_backend);
 
   int acceptor_count = evpaxos_acceptor_count(config);
   if (id < 0 || id >= acceptor_count) {

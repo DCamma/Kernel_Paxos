@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "user_storage.h"
+#include "paxos.h"
 #include <assert.h>
 #include <errno.h>
 #include <lmdb.h>

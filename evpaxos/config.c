@@ -29,6 +29,7 @@
 #include "kfile.h"
 #include "paxos.h"
 
+#ifndef user_space
 #include <linux/ctype.h>
 #include <linux/errno.h>
 #include <linux/inet.h>
@@ -36,6 +37,7 @@
 #include <linux/types.h>
 #include <linux/unistd.h>
 #include <net/sock.h>
+#endif
 
 struct address
 {
@@ -57,6 +59,7 @@ enum option_type
   option_integer,
   option_string,
   option_verbosity,
+  option_backend,
 };
 
 struct option
@@ -74,6 +77,7 @@ struct option options[] = {
   { "proposer-preexec-window", &paxos_config.proposer_preexec_window,
     option_integer },
   { "acceptor-trash-files", &paxos_config.trash_files, option_boolean },
+  { "storage-backend", &paxos_config.storage_backend, option_backend },
   { 0 }
 };
 
@@ -297,6 +301,18 @@ parse_verbosity(char* str, paxos_log_level* verbosity)
   return 1;
 }
 
+static int
+parse_backend(char* str, paxos_storage_backend* backend)
+{
+  if (strcasecmp(str, "memory") == 0)
+    *backend = PAXOS_MEM_STORAGE;
+  else if (strcasecmp(str, "lmdb") == 0)
+    *backend = PAXOS_LMDB_STORAGE;
+  else
+    return 0;
+  return 1;
+}
+
 static struct option*
 lookup_option(char* opt)
 {
@@ -387,6 +403,11 @@ parse_line(struct evpaxos_config* c, char* line)
       rv = parse_verbosity(line, opt->value);
       if (rv == 0)
         paxos_log_error("Expected quiet, error, info, or debug\n");
+      break;
+    case option_backend:
+      rv = parse_backend(line, opt->value);
+      if (rv == 0)
+        paxos_log_error("Expected memory or lmdb\n");
       break;
   }
 

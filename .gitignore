@@ -15,3 +15,7 @@ paxos.conf
 out.txt
 paxos.conf
 stats-*.txt
+notes.txt
+dmesg_out.txt
+dmesg_out_prop
+paxos.conf

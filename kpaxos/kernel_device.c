@@ -237,5 +237,5 @@ kdevchar_exit(void)
   pfree(de_name);
   pfree(clas_name);
   unregister_chrdev(majorNumber, de_name); // unregister the major number
-  paxos_log_debug(KERN_INFO "Device Char: Unloaded\n");
+  paxos_log_info("Device Char: Unloaded");
 }

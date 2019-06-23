@@ -1,47 +1,48 @@
+#include <paxos_types.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-/* Configuration */
-struct paxos_config
-{
-  int trash_files;
+// /* Configuration */
+// struct paxos_config
+// {
+//   int trash_files;
 
-  /* lmdb storage configuration */
-  int    lmdb_sync;
-  char*  lmdb_env_path;
-  size_t lmdb_mapsize;
-};
+//   /* lmdb storage configuration */
+//   int    lmdb_sync;
+//   char*  lmdb_env_path;
+//   size_t lmdb_mapsize;
+// };
 
 typedef uint32_t iid_t;
 struct lmdb_storage;
 
-struct s_message
-{
-  size_t size;
-  int    msg_type;
-  char   value[0];
-};
+// struct s_message
+// {
+//   size_t size;
+//   int    msg_type;
+//   char   value[0];
+// };
 
-struct paxos_value
-{
-  int   paxos_value_len;
-  char* paxos_value_val;
-};
-typedef struct paxos_value paxos_value;
+// struct paxos_value
+// {
+//   int   paxos_value_len;
+//   char* paxos_value_val;
+// };
+// typedef struct paxos_value paxos_value;
 
-struct paxos_accepted
-{
-  uint32_t    aid;
-  uint32_t    iid;
-  uint32_t    promise_iid;
-  uint32_t    ballot;
-  uint32_t    value_ballot;
-  paxos_value value;
-};
-typedef struct paxos_accepted paxos_accepted;
+// struct paxos_accepted
+// {
+//   uint32_t    aid;
+//   uint32_t    iid;
+//   uint32_t    promise_iid;
+//   uint32_t    ballot;
+//   uint32_t    value_ballot;
+//   paxos_value value;
+// };
+// typedef struct paxos_accepted paxos_accepted;
 
-char* paxos_accepted_to_buffer(paxos_accepted* acc);
-void  paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
+// char* paxos_accepted_to_buffer(paxos_accepted* acc);
+// void  paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
 
 struct lmdb_storage* lmdb_storage_new(int acceptor_id);
 int                  lmdb_storage_open(struct lmdb_storage* store);
