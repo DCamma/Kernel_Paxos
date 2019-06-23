@@ -8,3 +8,10 @@
 build/**
 .DS_Store
 .vscode/**
+.idea/
+cmake-build-debug/
+dmesg_out.txt
+dmesg_out_prop
+notes.txt
+out.txt
+stats-001clients-8844442.txt
