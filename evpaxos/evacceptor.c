@@ -29,8 +29,11 @@
 #include "evpaxos.h"
 #include "message.h"
 #include "peers.h"
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/udp.h>
+#include <net/sock.h>
 
 struct evacceptor
 {
@@ -39,6 +42,65 @@ struct evacceptor
   struct timer_list stats_ev;
   struct timeval    stats_interval;
 };
+
+#define NETLINK_USER 31
+struct sock* nl_sk_user_kernel = NULL;
+
+static void
+send_nl_msg(int pid, char* msg)
+{
+  struct sk_buff*  skb_out;
+  int              msg_size;
+  int              res;
+  struct nlmsghdr* nlh;
+
+  msg_size = strlen(msg);
+
+  paxos_log_debug("send_nl_msg payload: %s, len: %d\n", msg, msg_size);
+
+  skb_out = nlmsg_new(msg_size, 0);
+
+  if (!skb_out) {
+    paxos_log_error("Failed to allocate new skb\n");
+    return;
+  }
+  // nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, msg_size, 0);
+  // NETLINK_CB(skb_out).dst_group = 0; /* not in mcast group */
+  // strncpy(nlmsg_data(nlh), msg, msg_size);
+
+  // res = nlmsg_unicast(nl_sk_user_kernel, skb_out, pid);
+
+  // if (res < 0)
+  //   paxos_log_error("Error while sending bak to user\n");
+}
+
+static void
+handle_nl_recv_msg(struct sk_buff* skb)
+{
+  struct nlmsghdr* nlh;
+  int              pid;
+
+  paxos_log_debug("Entering: handle_nl_recv_msg\n");
+
+  nlh = (struct nlmsghdr*)skb->data;
+  pid = nlh->nlmsg_pid; /*pid of sending process */
+  paxos_log_debug("Netlink received msg from pid: %d, with payload:%s\n", pid,
+                  (char*)nlmsg_data(nlh));
+
+  char* msg = "hello from the kernel side";
+  send_nl_msg(pid, msg);
+}
+
+struct sock*
+create_netlink_sk(struct netlink_kernel_cfg* cfg)
+{
+  return netlink_kernel_create(&init_net, NETLINK_USER, cfg);
+}
+static void
+sk_msg_from_user(struct sk_buff* skb)
+{
+  handle_nl_recv_msg(skb);
+}
 
 static inline void
 send_acceptor_paxos_message(struct net_device* dev, struct peer* p, void* arg)
@@ -192,6 +254,13 @@ evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
   acceptor->stats_interval = (struct timeval){ 1, 0 };
   mod_timer(&acceptor->stats_ev,
             jiffies + timeval_to_jiffies(&acceptor->stats_interval));
+
+  // This is for 3.6 kernels and above.
+  struct netlink_kernel_cfg cfg = {
+    .input = sk_msg_from_user,
+  };
+
+  nl_sk_user_kernel = create_netlink_sk(&cfg);
 
   return acceptor;
 }

@@ -1,11 +1,16 @@
 #ifndef COMMON_PAX
 #define COMMON_PAX
 
-#include <linux/slab.h> //kmalloc
+#ifdef user_space
+#include <stdint.h>
+#endif
 
+#ifndef user_space
+#include <linux/slab.h> //kmalloc	#include <linux/slab.h> //kmalloc
 #define pmalloc(size) kmalloc(size, GFP_ATOMIC)
 #define prealloc(ptr, size) krealloc(ptr, size, GFP_ATOMIC)
 #define pfree(ptr) kfree(ptr)
+#endif
 
 extern const char* MOD_NAME;
 

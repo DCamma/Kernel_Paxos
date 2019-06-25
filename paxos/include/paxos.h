@@ -38,6 +38,10 @@ extern "C"
 #include <linux/kernel.h>
 #include <linux/types.h>
 
+#ifdef user_space
+#include <stdio.h>
+#endif
+
   /* Paxos instance ids and ballots */
   typedef uint32_t iid_t;
   typedef uint32_t ballot_t;
