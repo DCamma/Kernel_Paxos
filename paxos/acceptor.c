@@ -76,11 +76,16 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
                          paxos_message* out)
 {
   paxos_accepted acc;
+
   if (req->iid <= a->trim_iid)
     return 0;
+  if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
+    prepare_to_userspace(req);
+    return -1;
+  }
+
   memset(&acc, 0, sizeof(paxos_accepted));
-  if (storage_tx_begin(&a->store) != 0)
-    return 0;
+
   int found = storage_get_record(&a->store, req->iid, &acc);
 
   if (!found || acc.ballot <= req->ballot) {
@@ -91,10 +96,7 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
       storage_tx_abort(&a->store);
       return 0;
     }
-    paxos_accepted_to_user_space(&acc);
   }
-  if (storage_tx_commit(&a->store) != 0)
-    return 0;
   paxos_accepted_to_promise(&acc, out);
   return 1;
 }

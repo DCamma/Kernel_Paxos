@@ -27,13 +27,13 @@ static struct evacceptor* acc = NULL;
 static void
 on_deliver(unsigned int iid, char* value, size_t size, void* arg)
 {
-  kset_message(value, size); // from klearner, change this
+  kset_message(value, size); // TODO: change this
 }
 
 static void
 start_acceptor(int id)
 {
-  kdevchar_init(id, "kacceptor");
+  kdevchar_init(id, "kacceptor"); // TODO: do this only for persistent storage
   acc = evacceptor_init(on_deliver, id, if_name, path);
   if (acc == NULL) {
     LOG_ERROR("Could not start the acceptor\n");

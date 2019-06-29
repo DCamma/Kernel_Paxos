@@ -1,12 +1,7 @@
 #include "chardevice_message.h"
-#include "storage_utils.h"
+#ifndef user_space
 #include <linux/vmalloc.h>
-
-enum msg_types
-{
-  GET_STATE,
-  STORE_STATE,
-};
+#endif
 
 void
 paxos_accepted_to_user_space(paxos_accepted* acc)
@@ -17,8 +12,7 @@ paxos_accepted_to_user_space(paxos_accepted* acc)
   size_t len = acc->value.paxos_value_len;
   char*  buffer = pmalloc(sizeof(int) + sizeof(paxos_accepted) + len);
   if (buffer == NULL)
-    paxos_log_error(
-      "[paxos_acc_to_user_s] pmalloc returned NULL in paxos_accepted_to_user");
+    paxos_log_error("[paxos_acc_to_user_s] pmalloc returned NULL");
   int msg_type = STORE_STATE;
   memcpy(buffer, &msg_type, sizeof(int));
   memcpy(&buffer[sizeof(int)], acc, sizeof(paxos_accepted));
@@ -28,6 +22,20 @@ paxos_accepted_to_user_space(paxos_accepted* acc)
   }
 
   kset_message(buffer, sizeof(int) + sizeof(paxos_accepted) + len);
+  pfree(buffer);
+}
+
+void
+prepare_to_userspace(paxos_prepare* req)
+{
+  char* buffer = pmalloc(sizeof(int) + sizeof(paxos_prepare));
+  if (buffer == NULL)
+    paxos_log_error("[prepare to user] pmalloc returned NULL");
+  int msg_type = PREPARE;
+  memcpy(buffer, &msg_type, sizeof(int));
+  memcpy(&buffer[sizeof(int)], req, sizeof(paxos_prepare));
+
+  kset_message(buffer, sizeof(int) + sizeof(paxos_prepare));
   pfree(buffer);
 }
 

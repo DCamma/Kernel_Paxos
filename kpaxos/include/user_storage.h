@@ -41,8 +41,8 @@ struct lmdb_storage;
 // };
 // typedef struct paxos_accepted paxos_accepted;
 
-// char* paxos_accepted_to_buffer(paxos_accepted* acc);
-// void  paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
+char* paxos_accepted_to_buffer(paxos_accepted* acc);
+void  paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
 
 struct lmdb_storage* lmdb_storage_new(int acceptor_id);
 int                  lmdb_storage_open(struct lmdb_storage* store);

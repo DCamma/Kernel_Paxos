@@ -1,3 +1,4 @@
+#include "chardevice_message.h"
 #include "getopt.h"
 #include "poll.h"
 #include "user_eth.h"
@@ -12,6 +13,9 @@
 
 static int           stop = 1;
 struct lmdb_storage* stor;
+char error_msg[] = "\x1b[31m[user_acceptor] Error while:\x1b[0m";
+
+int acceptor_write_file(struct server* serv, char* msg, size_t msg_size);
 
 void
 stop_execution(int signo)
@@ -25,25 +29,18 @@ struct kernel_msg
   char value[0];
 };
 
-enum msg_types
-{
-  GET_STATE,
-  STORE_STATE,
-};
-
 static void
 store_paxos_accepted(paxos_accepted* acc)
 {
-  char error_msg[] = "\x1b[31m[user_acceptor] Error while:\x1b[0m";
-
-  printf("[user_acceptor] acc->aid:          [%zu]\n", (unsigned long)acc->aid);
-  printf("[user_acceptor] acc->iid:          [%zu]\n", (unsigned long)acc->iid);
-  printf("[user_acceptor] acc->promise_iid:  [%zu]\n",
-         (unsigned long)acc->promise_iid);
-  printf("[user_acceptor] acc->ballot:       [%zu]\n",
-         (unsigned long)acc->ballot);
-  printf("[user_acceptor] acc->value_ballot: [%zu]\n",
-         (unsigned long)acc->value_ballot);
+  // printf("[user_acceptor] acc->aid:          [%zu]\n", (unsigned
+  // long)acc->aid); printf("[user_acceptor] acc->iid:          [%zu]\n",
+  // (unsigned long)acc->iid); printf("[user_acceptor] acc->promise_iid:
+  // [%zu]\n",
+  //        (unsigned long)acc->promise_iid);
+  // printf("[user_acceptor] acc->ballot:       [%zu]\n",
+  //        (unsigned long)acc->ballot);
+  // printf("[user_acceptor] acc->value_ballot: [%zu]\n",
+  //        (unsigned long)acc->value_ballot);
 
   if (lmdb_storage_tx_begin(stor) != 0)
     printf("%s lmdb_storage_tx_begin\n", error_msg);
@@ -57,6 +54,33 @@ store_paxos_accepted(paxos_accepted* acc)
 }
 
 static void
+handle_prepare(struct server* serv, paxos_prepare* prepare)
+{
+  paxos_accepted acc;
+  memset(&acc, 0, sizeof(paxos_accepted));
+  if (lmdb_storage_tx_begin(stor) != 0)
+    printf("%s lmdb_storage_tx_begin\n", error_msg);
+
+  int found = lmdb_storage_get(stor, prepare->iid, &acc);
+  if (!found || acc.ballot <= prepare->ballot) {
+    acc.aid = serv->fileop.char_device_id;
+    acc.iid = prepare->iid;
+    acc.ballot = prepare->ballot;
+    if (lmdb_storage_put(stor, &acc) != 0) {
+      lmdb_storage_tx_abort(stor);
+      printf("%s storage_tx_abort\n", error_msg);
+    }
+  }
+
+  if (lmdb_storage_tx_commit(stor) != 0)
+    printf("%s lmdb_storage_tx_commit\n", error_msg);
+
+  char* buffer = paxos_accepted_to_buffer(&acc);
+  acceptor_write_file(serv, buffer, sizeof(paxos_accepted));
+  free(buffer);
+}
+
+static void
 unpack_message(struct server* serv, size_t len)
 {
   struct user_msg*   mess = (struct user_msg*)serv->ethop.rec_buffer;
@@ -66,8 +90,8 @@ unpack_message(struct server* serv, size_t len)
       store_paxos_accepted((struct paxos_accepted*)received_msg->value);
       break;
 
-    case GET_STATE:
-
+    case PREPARE:
+      handle_prepare(serv, (struct paxos_prepare*)received_msg->value);
       break;
 
     default:
@@ -157,7 +181,7 @@ main(int argc, char* argv[])
   new_connection_list(serv);
 
   check_args(argc, argv, serv);
-  // printf("[user_acceptor] lmdb_storage_open\n");
+
   printf("[user_acceptor] if_name %s\n", serv->ethop.if_name);
   printf("[user_acceptor] chardevice /dev/paxos/kacceptor%c\n",
          serv->fileop.char_device_id + '0');

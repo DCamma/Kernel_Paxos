@@ -30,6 +30,14 @@ struct file_operations fops = {
   .poll = kdev_poll,
 };
 
+void (*evacc_cb)(const char* buffer, int len);
+
+void
+set_evacceptor_callback(void (*cb)(const char* buffer, int len))
+{
+  evacc_cb = cb;
+}
+
 static void
 paxerr(char* err)
 {
@@ -88,7 +96,9 @@ kdev_read(struct file* filep, char* buffer, size_t len, loff_t* offset)
 ssize_t
 kdev_write(struct file* filep, const char* buffer, size_t len, loff_t* offset)
 {
-  paxos_log_debug("Received from user: %s\n", buffer);
+  paxos_log_debug("Received from user");
+  // TODO: check if callback has been set
+  evacc_cb(buffer, len);
   if (working == 0)
     return -1;
 

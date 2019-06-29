@@ -14,5 +14,6 @@ extern int          kdevchar_init(int id, char* name);
 extern unsigned int kdev_poll(struct file*, poll_table* wait);
 extern void         kdevchar_exit(void);
 extern void         kset_message(char* msg, size_t size);
+extern void set_evacceptor_callback(void (*cb)(const char* buffer, int len));
 
 #endif

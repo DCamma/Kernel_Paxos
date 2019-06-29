@@ -31,7 +31,6 @@ eth_init(const char* if_name)
   memset(cbs, 0, sizeof(cbs));
   if (memcmp(if_name, "lo", 3) == 0)
     if_lo = 1;
-  paxos_log_debug("[eth.c] if_lo set to 1");
   return dev_get_by_name(&init_net, if_name);
 }
 
@@ -81,7 +80,6 @@ static int
 packet_recv(struct sk_buff* skb, struct net_device* dev, struct packet_type* pt,
             struct net_device* src_dev)
 {
-  paxos_log_debug("[eth.c] packet_recv entered");
   uint16_t       proto = ntohs(skb->protocol);
   int            i = GET_PAXOS_INDEX(proto);
   paxos_message  msg;
@@ -97,7 +95,6 @@ packet_recv(struct sk_buff* skb, struct net_device* dev, struct packet_type* pt,
     data_p += ETH_HLEN; // skip the header
     len -= ETH_HLEN;
   }
-  paxos_log_debug("[eth.c] smth received");
   recv_paxos_message(&msg, msg_data, proto, data_p, len);
   for (int k = 0; k < cbs[i].cb_index; k++) {
     cbs[i].cb[k](&msg, cbs[i].arg[k], eth->h_source);
