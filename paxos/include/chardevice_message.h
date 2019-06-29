@@ -10,5 +10,5 @@ enum msg_types
   PREPARE,
 };
 
-void paxos_accepted_to_user_space(paxos_accepted* acc);
-void prepare_to_userspace(paxos_prepare* prep);
+extern void paxos_accepted_to_user_space(paxos_accepted* acc);
+extern void prepare_to_userspace(paxos_prepare* prep);

@@ -1,6 +1,6 @@
 #include "chardevice_message.h"
 #include "common.h"
-#include "kernel_device.h"
+// #include "kernel_device.h"
 #include "storage.h"
 #include <linux/if_ether.h>
 #include <linux/vmalloc.h>

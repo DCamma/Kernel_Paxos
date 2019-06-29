@@ -75,8 +75,13 @@ handle_prepare(struct server* serv, paxos_prepare* prepare)
   if (lmdb_storage_tx_commit(stor) != 0)
     printf("%s lmdb_storage_tx_commit\n", error_msg);
 
-  char* buffer = paxos_accepted_to_buffer(&acc);
-  acceptor_write_file(serv, buffer, sizeof(paxos_accepted));
+  char* buffer = malloc(sizeof(int) + sizeof(paxos_accepted));
+  if (buffer == NULL)
+    printf("%s malloc returned NULL\n", error_msg);
+  int msg_type = PREPARE;
+  memcpy(buffer, &msg_type, sizeof(int));
+  memcpy(&buffer[sizeof(int)], &acc, sizeof(paxos_accepted));
+  acceptor_write_file(serv, buffer, sizeof(int) + sizeof(paxos_accepted));
   free(buffer);
 }
 

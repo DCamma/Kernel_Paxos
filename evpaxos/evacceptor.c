@@ -26,8 +26,8 @@
  */
 
 #include "acceptor.h"
+#include "chardevice_message.h"
 #include "evpaxos.h"
-#include "kernel_device.h"
 #include "message.h"
 #include "peers.h"
 #include <linux/slab.h>
@@ -42,8 +42,20 @@ struct evacceptor
   struct timeval    stats_interval;
 };
 
-struct evacceptor*
-  glob_evacceptor; // DC pointer to evacceptor initialized in evacc_init
+struct user_msg
+{
+  size_t size;
+  char   value[0];
+};
+
+struct accepted_from_user
+{
+  int  msg_type;
+  char value[0];
+};
+
+static struct evacceptor*
+  glob_evacceptor; // pointer to evacceptor initialized in evacc_init
 
 static inline void
 send_acceptor_paxos_message(struct net_device* dev, struct peer* p, void* arg)
@@ -61,7 +73,6 @@ evacceptor_handle_prepare(paxos_message* msg, void* arg, eth_address* src)
   paxos_prepare*     prepare = &msg->u.prepare;
   struct evacceptor* a = (struct evacceptor*)arg;
   add_or_update_client(src, a->peers);
-  paxos_log_debug("Received PREPARE");
   if (acceptor_receive_prepare(a->state, prepare, &out) > 0) {
     send_paxos_message(get_dev(a->peers), src, &out);
     paxos_message_destroy(&out);
@@ -69,9 +80,27 @@ evacceptor_handle_prepare(paxos_message* msg, void* arg, eth_address* src)
 }
 
 static void
+resume_prepare(struct paxos_accepted* acc, struct evacceptor* evacc)
+{
+  paxos_log_debug("%d, %d, %d", acc->aid, acc->iid, acc->ballot);
+}
+
+static void
 handle_userspace_message(const char* buffer, int len)
 {
-  paxos_log_debug("handle_userspace_message");
+  // paxos_log_debug("handle_userspace_message");
+  // struct user_msg*           mess = (struct user_msg*)buffer;
+  struct accepted_from_user* recv_acc = (struct accepted_from_user*)buffer;
+  paxos_log_debug("RECEIVED STUFF TYPE: %d", recv_acc->msg_type);
+  switch (recv_acc->msg_type) {
+    case PREPARE:
+      paxos_log_debug("Received PREPARE");
+      resume_prepare((struct paxos_accepted*)recv_acc->value, glob_evacceptor);
+      break;
+    default:
+      paxos_log_debug("[handle_userspace_message] unrecognized msg_type");
+      break;
+  }
 }
 
 /*
