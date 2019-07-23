@@ -50,8 +50,9 @@ struct user_msg
 
 struct accepted_from_user
 {
-  int  msg_type;
-  char value[0];
+  int     msg_type;
+  uint8_t src[6];
+  char    value[0];
 };
 
 static struct evacceptor*
@@ -61,6 +62,76 @@ static inline void
 send_acceptor_paxos_message(struct net_device* dev, struct peer* p, void* arg)
 {
   send_paxos_message(dev, get_addr(p), arg);
+}
+
+static void
+resume_prepare(uint8_t* src, struct paxos_accepted* acc,
+               struct evacceptor* evacc)
+{
+  // char arr[20];
+  // mac_to_str(src, arr);
+  // paxos_log_debug("resume_prepare: src= %s", arr);
+  paxos_log_debug("resume_prepare(aid,iid,b): %lu, %lu, %lu", acc->aid,
+                  acc->iid, acc->ballot);
+  paxos_message out;
+  paxos_accepted_to_promise(acc, &out);
+  send_paxos_message(get_dev(evacc->peers), src, &out);
+  paxos_message_destroy(&out);
+}
+
+static void
+resume_accept(uint8_t* src, struct paxos_message* out, struct evacceptor* evacc)
+{
+  if (out->type == PAXOS_ACCEPTED) {
+    peers_foreach_client(evacc->peers, send_acceptor_paxos_message, out);
+    paxos_log_debug("Sent ACCEPTED to all proposers and learners");
+  } else if (out->type == PAXOS_PREEMPTED) {
+    send_paxos_message(get_dev(evacc->peers), src, out);
+    paxos_log_debug("Sent PREEMPTED to the proposer ");
+    paxos_message_destroy(out);
+  }
+}
+
+static void
+resume_repeat(uint8_t* src, struct paxos_accepted* acc,
+              struct evacceptor* evacc)
+{
+  // char arr[20];
+  // mac_to_str(src, arr);
+  // paxos_log_debug("resume_prepare: src= %s", arr);
+  paxos_log_debug("resume_repeat(aid,iid,b): %lu, %lu, %lu", acc->aid, acc->iid,
+                  acc->ballot);
+  send_paxos_accepted(get_dev(evacc->peers), src, acc);
+  paxos_accepted_destroy(acc);
+}
+
+static void
+handle_userspace_message(const char* buffer, int len)
+{
+  // paxos_log_debug("handle_userspace_message");
+  // struct user_msg*           mess = (struct user_msg*)buffer;
+  struct accepted_from_user* recv = (struct accepted_from_user*)buffer;
+  paxos_log_debug("RECEIVED STUFF TYPE: %d", recv->msg_type);
+  switch (recv->msg_type) {
+    case PREPARE:
+      paxos_log_debug("Received PREPARE");
+      resume_prepare(recv->src, (struct paxos_accepted*)recv->value,
+                     glob_evacceptor);
+      break;
+    case ACCEPT:
+      paxos_log_debug("ReceIved ACCEPT");
+      resume_accept(recv->src, (struct paxos_message*)recv->value,
+                    glob_evacceptor);
+      break;
+    case REPEAT:
+      paxos_log_debug("ReceIved REPEAT");
+      resume_repeat(recv->src, (struct paxos_accepted*)recv->value,
+                    glob_evacceptor);
+      break;
+    default:
+      paxos_log_debug("[handle_userspace_message] unrecognized msg_type");
+      break;
+  }
 }
 
 /*
@@ -73,33 +144,11 @@ evacceptor_handle_prepare(paxos_message* msg, void* arg, eth_address* src)
   paxos_prepare*     prepare = &msg->u.prepare;
   struct evacceptor* a = (struct evacceptor*)arg;
   add_or_update_client(src, a->peers);
-  if (acceptor_receive_prepare(a->state, prepare, &out) > 0) {
+  if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
+    paxos_prepare_to_userspace(prepare, src);
+  } else if (acceptor_receive_prepare(a->state, prepare, &out) > 0) {
     send_paxos_message(get_dev(a->peers), src, &out);
     paxos_message_destroy(&out);
-  }
-}
-
-static void
-resume_prepare(struct paxos_accepted* acc, struct evacceptor* evacc)
-{
-  paxos_log_debug("%d, %d, %d", acc->aid, acc->iid, acc->ballot);
-}
-
-static void
-handle_userspace_message(const char* buffer, int len)
-{
-  // paxos_log_debug("handle_userspace_message");
-  // struct user_msg*           mess = (struct user_msg*)buffer;
-  struct accepted_from_user* recv_acc = (struct accepted_from_user*)buffer;
-  paxos_log_debug("RECEIVED STUFF TYPE: %d", recv_acc->msg_type);
-  switch (recv_acc->msg_type) {
-    case PREPARE:
-      paxos_log_debug("Received PREPARE");
-      resume_prepare((struct paxos_accepted*)recv_acc->value, glob_evacceptor);
-      break;
-    default:
-      paxos_log_debug("[handle_userspace_message] unrecognized msg_type");
-      break;
   }
 }
 
@@ -113,27 +162,38 @@ evacceptor_handle_accept(paxos_message* msg, void* arg, eth_address* src)
   paxos_accept*      accept = &msg->u.accept;
   struct evacceptor* a = (struct evacceptor*)arg;
   paxos_log_debug("Received ACCEPT REQUEST");
+  // move this initialization?
   paxos_prepare prepare =
     (paxos_prepare){ .iid = accept->promise_iid, .ballot = accept->ballot };
   uint32_t promise_iid = 0;
-  if (acceptor_receive_accept(a->state, accept, &out) != 0) {
+  if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
+    paxos_log_debug("accept value len: %lu", accept->value.paxos_value_len);
+    paxos_accept_to_userspace(accept, src);
+  } else if (acceptor_receive_accept(a->state, accept, &out) != 0) {
 
     if (acceptor_receive_prepare(a->state, &prepare, &out2) != 0) {
       promise_iid = out2.u.promise.iid;
       if (out2.u.promise.ballot > accept->ballot ||
           out2.u.promise.value_ballot > 0) {
         out.u.accepted.promise_iid = 0;
-        send_paxos_message(get_dev(a->peers), src, &out2);
+        send_paxos_message(get_dev(a->peers), src, &out2); // send promise
         paxos_message_destroy(&out2);
         promise_iid = 0;
       }
     }
 
-    if (out.type == PAXOS_ACCEPTED) {
+    if (out.type == PAXOS_ACCEPTED) { // only if it wasn't in storage or
+                                      // acc.ballot <= req.ballot
       out.u.accepted.promise_iid = promise_iid;
+      /*
+        IF out2.u.promise.ballot > accept->ballot ||
+        out2.u.promise.value_ballot > 0
+        THEN promise_iid = 0
+        ELSE promise_iid = out2.u.promise.iid
+       */
       peers_foreach_client(a->peers, send_acceptor_paxos_message, &out);
       paxos_log_debug("Sent ACCEPTED to all proposers and learners");
-    } else if (out.type == PAXOS_PREEMPTED) {
+    } else if (out.type == PAXOS_PREEMPTED) { // if not found in storage
       send_paxos_message(get_dev(a->peers), src, &out);
       paxos_log_debug("Sent PREEMPTED to the proposer ");
     }
@@ -151,7 +211,9 @@ evacceptor_handle_repeat(paxos_message* msg, void* arg, eth_address* src)
   struct evacceptor* a = (struct evacceptor*)arg;
   paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
   for (iid = repeat->from; iid <= repeat->to; ++iid) {
-    if (acceptor_receive_repeat(a->state, iid, &accepted)) {
+    if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
+      paxos_repeat_to_userspace(iid, src);
+    } else if (acceptor_receive_repeat(a->state, iid, &accepted)) {
       paxos_log_debug("sent a repeated PAXOS_ACCEPTED %d to learner", iid);
       send_paxos_accepted(get_dev(a->peers), src, &accepted);
       paxos_accepted_destroy(&accepted);
@@ -239,7 +301,7 @@ evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p,
 
   set_evacceptor_callback(handle_userspace_message);
   // set a callback in kernel_device
-  // the callback is executed each time a message from user space arrive
+  // the callback is executed each time a message from user space arrives
   return acceptor;
 }
 

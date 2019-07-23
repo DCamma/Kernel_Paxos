@@ -20,3 +20,5 @@ dmesg_out.txt
 dmesg_out_prop
 paxos.conf
 evacceptor_discarded
+dmes11g.out
+dmesg.out

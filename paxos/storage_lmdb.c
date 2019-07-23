@@ -59,7 +59,7 @@ lmdb_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 static void
 lmdb_storage_put(void* handle, paxos_accepted* acc)
 {
-  paxos_accepted_to_user_space(acc);
+  // paxos_accepted_to_user_space(acc);
 }
 
 static iid_t

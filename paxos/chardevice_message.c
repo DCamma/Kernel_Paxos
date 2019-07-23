@@ -1,14 +1,12 @@
 #include "chardevice_message.h"
 #ifndef user_space
+#include <eth.h>
 #include <linux/vmalloc.h>
 #endif
 
 void
-paxos_accepted_to_user_space(paxos_accepted* acc)
+paxos_accepted_to_userspace(paxos_accepted* acc)
 {
-  paxos_log_debug("[paxos_acc_to_user_s] acc.iid:    [%zu]", acc->iid);
-  paxos_log_debug("[paxos_acc_to_user_s] acc.ballot: [%zu]", acc->ballot);
-
   size_t len = acc->value.paxos_value_len;
   char*  buffer = pmalloc(sizeof(int) + sizeof(paxos_accepted) + len);
   if (buffer == NULL)
@@ -26,16 +24,56 @@ paxos_accepted_to_user_space(paxos_accepted* acc)
 }
 
 void
-prepare_to_userspace(paxos_prepare* req)
+paxos_prepare_to_userspace(paxos_prepare* req, eth_address* src)
 {
-  char* buffer = pmalloc(sizeof(int) + sizeof(paxos_prepare));
+  size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + sizeof(paxos_prepare);
+  char*  buffer = pmalloc(total_size);
   if (buffer == NULL)
     paxos_log_error("[prepare to user] pmalloc returned NULL");
-  int msg_type = PREPARE;
-  memcpy(buffer, &msg_type, sizeof(int));
-  memcpy(&buffer[sizeof(int)], req, sizeof(paxos_prepare));
+  int    msg_type = PREPARE;
+  size_t padd = sizeof(int);
+  memcpy(buffer, &msg_type, padd);
+  memcpy(buffer + padd, src, 6 * sizeof(uint8_t));
+  padd += 6 * sizeof(uint8_t);
+  memcpy(buffer + padd, req, sizeof(paxos_prepare));
 
-  kset_message(buffer, sizeof(int) + sizeof(paxos_prepare));
+  kset_message(buffer, total_size);
+  pfree(buffer);
+}
+
+void
+paxos_accept_to_userspace(paxos_accept* req, eth_address* src)
+{
+  size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + sizeof(paxos_accept);
+  char*  buffer = pmalloc(total_size);
+  if (buffer == NULL)
+    paxos_log_error("[prepare to user] pmalloc returned NULL");
+  int    msg_type = ACCEPT;
+  size_t padd = sizeof(int);
+  memcpy(buffer, &msg_type, padd);
+  memcpy(buffer + padd, src, 6 * sizeof(uint8_t));
+  padd += 6 * sizeof(uint8_t);
+  memcpy(buffer + padd, req, sizeof(paxos_accept));
+
+  kset_message(buffer, total_size);
+  pfree(buffer);
+}
+
+void
+paxos_repeat_to_userspace(iid_t iid, eth_address* src)
+{
+  size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + sizeof(iid_t);
+  char*  buffer = pmalloc(total_size);
+  if (buffer == NULL)
+    paxos_log_error("[prepare to user] pmalloc returned NULL");
+  int    msg_type = REPEAT;
+  size_t padd = sizeof(int);
+  memcpy(buffer, &msg_type, padd);
+  memcpy(buffer + padd, src, 6 * sizeof(uint8_t));
+  padd += 6 * sizeof(uint8_t);
+  memcpy(buffer + padd, &iid, sizeof(iid_t));
+
+  kset_message(buffer, total_size);
   pfree(buffer);
 }
 

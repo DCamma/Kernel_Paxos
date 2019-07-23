@@ -39,12 +39,6 @@ struct acceptor
   struct storage store;
 };
 
-static void paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out);
-static void paxos_accept_to_accepted(int id, paxos_accept* acc,
-                                     paxos_message* out);
-static void paxos_accepted_to_preempted(int id, paxos_accepted* acc,
-                                        paxos_message* out);
-
 struct acceptor*
 acceptor_new(int id)
 {
@@ -79,10 +73,6 @@ acceptor_receive_prepare(struct acceptor* a, paxos_prepare* req,
 
   if (req->iid <= a->trim_iid)
     return 0;
-  if (paxos_config.storage_backend == PAXOS_LMDB_STORAGE) {
-    prepare_to_userspace(req);
-    return -1;
-  }
 
   memset(&acc, 0, sizeof(paxos_accepted));
 
@@ -160,7 +150,7 @@ acceptor_set_current_state(struct acceptor* a, paxos_acceptor_state* state)
   state->trim_iid = a->trim_iid;
 }
 
-static void
+void
 paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out)
 {
   out->type = PAXOS_PROMISE;
@@ -172,7 +162,7 @@ paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out)
                                       acc->value.paxos_value_val } };
 }
 
-static void
+void
 paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out)
 {
   char* value = NULL;
@@ -191,7 +181,7 @@ paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out)
                       .value = (paxos_value){ value_size, value } };
 }
 
-static void
+void
 paxos_accepted_to_preempted(int id, paxos_accepted* acc, paxos_message* out)
 {
   out->type = PAXOS_PREEMPTED;

@@ -49,6 +49,11 @@ extern "C"
   void acceptor_set_current_state(struct acceptor*      a,
                                   paxos_acceptor_state* out);
 
+  void paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out);
+  void paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out);
+  void paxos_accepted_to_preempted(int id, paxos_accepted* acc,
+                                   paxos_message* out);
+
 #ifdef __cplusplus
 }
 #endif

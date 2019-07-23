@@ -90,6 +90,7 @@ try_accept(struct evproposer* p)
 static void
 evproposer_handle_promise(paxos_message* msg, void* arg, eth_address* src)
 {
+  paxos_log_debug("RECEIVED PROMISE");
   struct evproposer* proposer = arg;
   paxos_prepare      prepare;
   paxos_promise*     pro = &msg->u.promise;
