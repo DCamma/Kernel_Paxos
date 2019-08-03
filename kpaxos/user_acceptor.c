@@ -213,7 +213,7 @@ accept_to_kspace(struct server* serv, uint8_t* src, paxos_message* out,
   pad += 6 * sizeof(uint8_t);
   memcpy(buffer + pad, out, message_size);
   if (out->type == PAXOS_ACCEPTED) {
-    pad += value_len;
+    pad += message_size;
     memcpy(buffer + pad, out->u.accepted.value.paxos_value_val, value_len);
   }
 
@@ -224,16 +224,6 @@ accept_to_kspace(struct server* serv, uint8_t* src, paxos_message* out,
 static void
 store_paxos_accepted(paxos_accepted* acc)
 {
-  // printf("[user_acceptor] acc->aid:          [%zu]\n", (unsigned
-  // long)acc->aid); printf("[user_acceptor] acc->iid:          [%zu]\n",
-  // (unsigned long)acc->iid); printf("[user_acceptor] acc->promise_iid:
-  // [%zu]\n",
-  //        (unsigned long)acc->promise_iid);
-  // printf("[user_acceptor] acc->ballot:       [%zu]\n",
-  //        (unsigned long)acc->ballot);
-  // printf("[user_acceptor] acc->value_ballot: [%zu]\n",
-  //        (unsigned long)acc->value_ballot);
-
   if (lmdb_storage_tx_begin(stor) != 0)
     print_error("lmdb_storage_tx_begin\n");
   if (lmdb_storage_put(stor, acc) != 0) {
@@ -248,7 +238,7 @@ static paxos_accepted*
 handle_prepare(struct server* serv, paxos_prepare* prepare)
 {
   paxos_accepted* acc = malloc(sizeof(paxos_accepted));
-  // memset(&acc, 0, sizeof(paxos_accepted));
+  memset(acc, 0, sizeof(paxos_accepted));
   if (lmdb_storage_tx_begin(stor) != 0)
     print_error("lmdb_storage_tx_begin\n");
 
@@ -269,11 +259,28 @@ handle_prepare(struct server* serv, paxos_prepare* prepare)
   // accepted_to_kspace(serv, src, &acc, sizeof(paxos_accepted));
   return acc;
 }
+static void
+handle_accept_log(char* buffer)
+{
+
+  struct paxos_accept* acc = (struct paxos_accept*)buffer;
+  acc->value.paxos_value_val = buffer + sizeof(paxos_accept);
+  // printf("recv: %d\n", acc->ballot);
+  printf("handle_accept_log: vlen: %u\n", acc->value.paxos_value_len);
+  // printf("handle_accept_log: v: %s\n", acc->value.paxos_value_val);
+  printf("acc->promise_iid %d, acc->ballot %u\n", acc->promise_iid,
+         acc->ballot);
+  struct client_value* cval = (struct client_value*)acc->value.paxos_value_val;
+  printf("handle_accept_log: %d v: %s\n", cval->size, cval->value);
+}
 
 static void
-handle_accept(struct server* serv, uint8_t* src, paxos_accept* req)
+handle_accept(struct server* serv, uint8_t* src, char* buffer)
 {
+  struct paxos_accept* req = (struct paxos_accept*)buffer;
+  req->value.paxos_value_val = buffer + sizeof(paxos_accept);
   paxos_message out;
+  memset(&out, 0, sizeof(paxos_message));
   paxos_prepare prepare =
     (paxos_prepare){ .iid = req->promise_iid, .ballot = req->ballot };
   uint32_t promise_iid = 0;
@@ -285,38 +292,51 @@ handle_accept(struct server* serv, uint8_t* src, paxos_accept* req)
     print_error("lmdb_storage_tx_begin\n");
 
   int found_out1 = lmdb_storage_get(stor, req->iid, &acc);
+  printf("found_out1 %d\n", found_out1);
+  printf("acc.ballot %u, acc.ballot %u\n", acc.ballot, req->ballot);
 
   if (!found_out1 || acc.ballot <= req->ballot) {
     /* IF not found
        THEN transform to accepted and store
      */
+    printf("not found OR acc.ballot <= req->ballot, transform to accepted\n");
+    printf("req->value.paxos_value_len %d\n", req->value.paxos_value_len);
     paxos_accept_to_accepted(serv->fileop.char_device_id, req, &out);
 
-    printf("req.v.len: %lu\n", req->value.paxos_value_len);
+    // printf("req.v.len: %u\n", req->value.paxos_value_len); // remove this
+
     // needed here to store accepted
     if (lmdb_storage_put(stor, &out.u.accepted) != 0) {
       lmdb_storage_tx_abort(stor);
       print_error("storage_tx_abort\n");
     }
+    printf("put done\n");
     if (lmdb_storage_tx_commit(stor) != 0)
       print_error("lmdb_storage_tx_commit\n");
+    printf("commit done\n");
   } else {
     paxos_accepted_to_preempted(serv->fileop.char_device_id, &acc, &out);
-    printf("else\n");
+    printf("paxos_accepted_to_preempted\n");
   }
   paxos_accepted_destroy(&acc);
   // accept handling over
 
   // new handle prepare
+  printf("new handle prepare\n");
   paxos_accepted* acc2 = handle_prepare(serv, &prepare);
+  printf("new handle prepare done\n");
   // new handle prepare over
 
-  // promise_iid = out2.u.promise.iid;
+  printf("acc2->ballot: %ld\n", acc2->ballot);
+  printf("acc2->value_ballot: %ld\n", acc2->value_ballot);
   promise_iid = acc2->iid; // accepted to primise is done in kspace
   if (acc2->ballot > req->ballot || acc2->value_ballot > 0) {
+    printf("promise in\n");
     out.u.accepted.promise_iid = 0; // difference with stored accepted?
     // send_paxos_message(get_dev(a->peers), src, &out2); // send promise
+    printf("befor send to kspace\n");
     accepted_to_kspace(serv, src, acc2, sizeof(paxos_accepted));
+    printf("after send to kspace\n");
     free(acc2);
     // will be transformed to promise in kspace and sent
     promise_iid = 0;
@@ -327,8 +347,11 @@ handle_accept(struct server* serv, uint8_t* src, paxos_accept* req)
   }
 
   accept_to_kspace(serv, src, &out, sizeof(paxos_message));
+  // printf("out->u.accepted.value.paxos_value_len; %ld\n",
+  //        out.u.accepted.value.paxos_value_len);
   paxos_message_destroy(&out);
   // paxos_message_destroy(&out2);
+  printf("handle accept end\n");
 }
 
 static void
@@ -361,15 +384,17 @@ unpack_message(struct server* serv, size_t len)
       break;
 
     case PREPARE:
-      printf("RECEIVED PREPARE\n");
+      printf("\n\x1b[32mRECEIVED PREPARE\x1b[0m\n");
       acc = handle_prepare(serv, (struct paxos_prepare*)received_msg->value);
       accepted_to_kspace(serv, received_msg->src, acc, sizeof(paxos_accepted));
       free(acc);
+      printf("\x1b[34mPREPARE DONE\x1b[0m\n");
       break;
     case ACCEPT:
-      printf("RECEIVED ACCEPT\n");
-      handle_accept(serv, received_msg->src,
-                    (struct paxos_accept*)received_msg->value);
+      printf("\n\x1b[32mRECEIVED ACCEPT\x1b[0m\n");
+      handle_accept_log(received_msg->value);
+      handle_accept(serv, received_msg->src, received_msg->value);
+      printf("\x1b[34mACCEPT DONE\x1b[0m\n");
       break;
     case REPEAT:
       handle_repeat(serv, received_msg->src, (iid_t*)received_msg->value);
@@ -451,6 +476,23 @@ check_args(int argc, char* argv[], struct server* serv)
   }
 }
 
+static void
+test_accept(struct server* serv)
+{
+  size_t total_size = sizeof(int);
+  char*  buffer = malloc(total_size);
+  if (buffer == NULL)
+    print_error("malloc returned NULL\n");
+  int    msg_type = SEND_ACCEPT;
+  size_t pad = sizeof(int);
+  memcpy(buffer, &msg_type, pad);
+
+  if (acceptor_write_file(serv, buffer, total_size)) {
+    printf("[user_acceptor] acceptor_write_file failed");
+  }
+  free(buffer);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -483,6 +525,8 @@ main(int argc, char* argv[])
     printf("[user_acceptor] acceptor_write_file failed");
     goto cleanup;
   }
+
+  // test_accept(serv);
 
   make_acceptor(serv);
   return 0;

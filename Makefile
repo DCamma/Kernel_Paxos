@@ -3,7 +3,6 @@ paxos/carray.o \
 paxos/paxos.o \
 paxos/quorum.o \
 paxos/storage_mem.o \
-paxos/storage_lmdb.o \
 paxos/storage_utils.o \
 paxos/storage.o \
 evpaxos/message.o \

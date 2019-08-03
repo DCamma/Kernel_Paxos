@@ -10,6 +10,7 @@ enum msg_types
   PREPARE,
   ACCEPT,
   REPEAT,
+  SEND_ACCEPT,
 };
 
 extern void paxos_accepted_to_userspace(paxos_accepted* acc);

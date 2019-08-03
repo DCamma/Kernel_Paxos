@@ -44,8 +44,10 @@ paxos_prepare_to_userspace(paxos_prepare* req, eth_address* src)
 void
 paxos_accept_to_userspace(paxos_accept* req, eth_address* src)
 {
-  size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + sizeof(paxos_accept);
-  char*  buffer = pmalloc(total_size);
+  size_t len = req->value.paxos_value_len;
+  size_t total_size =
+    sizeof(int) + 6 * sizeof(uint8_t) + sizeof(paxos_accept) + len;
+  char* buffer = pmalloc(total_size);
   if (buffer == NULL)
     paxos_log_error("[prepare to user] pmalloc returned NULL");
   int    msg_type = ACCEPT;
@@ -54,6 +56,10 @@ paxos_accept_to_userspace(paxos_accept* req, eth_address* src)
   memcpy(buffer + padd, src, 6 * sizeof(uint8_t));
   padd += 6 * sizeof(uint8_t);
   memcpy(buffer + padd, req, sizeof(paxos_accept));
+  padd += sizeof(paxos_accept);
+  if (len > 0) {
+    memcpy(buffer + padd, req->value.paxos_value_val, len);
+  }
 
   kset_message(buffer, total_size);
   pfree(buffer);

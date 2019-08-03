@@ -30,20 +30,7 @@
 void
 storage_init(struct storage* store, int acceptor_id)
 {
-  // storage_init_mem(store, acceptor_id);
-  switch (paxos_config.storage_backend) {
-    case PAXOS_MEM_STORAGE:
-      storage_init_mem(store, acceptor_id);
-      break;
-      // #ifdef HAS_LMDB
-    case PAXOS_LMDB_STORAGE:
-      storage_init_mem(store, acceptor_id);
-      // storage_init_lmdb(store, acceptor_id);
-      break;
-      // #endif
-    default:
-      paxos_log_error("Storage backend not available");
-  }
+  storage_init_mem(store, acceptor_id);
 }
 
 int
