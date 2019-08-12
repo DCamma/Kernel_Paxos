@@ -38,8 +38,9 @@
 // TODO: generate config from config file
 struct paxos_config paxos_config_test = { .trash_files = 1,
                                           .lmdb_sync = 0,
-                                          .lmdb_env_path = "/tmp/acceptor",
-                                          .lmdb_mapsize = 10 * 1024 * 1024 };
+                                          .lmdb_env_path =
+                                            "/tmp/kpaxos_davide/acceptor",
+                                          .lmdb_mapsize = 1024 * 1024 * 1024 };
 
 struct lmdb_storage
 {

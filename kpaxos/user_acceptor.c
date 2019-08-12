@@ -292,15 +292,16 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
     print_error("lmdb_storage_tx_begin\n");
 
   int found_out1 = lmdb_storage_get(stor, req->iid, &acc);
-  printf("found_out1 %d\n", found_out1);
-  printf("acc.ballot %u, acc.ballot %u\n", acc.ballot, req->ballot);
+  // printf("found_out1 %d\n", found_out1);
+  // printf("acc.ballot %u, acc.ballot %u\n", acc.ballot, req->ballot);
 
   if (!found_out1 || acc.ballot <= req->ballot) {
     /* IF not found
        THEN transform to accepted and store
      */
-    printf("not found OR acc.ballot <= req->ballot, transform to accepted\n");
-    printf("req->value.paxos_value_len %d\n", req->value.paxos_value_len);
+    // printf("not found OR acc.ballot <= req->ballot, transform to
+    // accepted\n"); printf("req->value.paxos_value_len %d\n",
+    // req->value.paxos_value_len);
     paxos_accept_to_accepted(serv->fileop.char_device_id, req, &out);
 
     // needed here to store accepted
@@ -308,33 +309,25 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
       lmdb_storage_tx_abort(stor);
       print_error("storage_tx_abort\n");
     }
-    printf("put done\n");
     if (lmdb_storage_tx_commit(stor) != 0)
       print_error("lmdb_storage_tx_commit\n");
-    printf("commit done\n");
   } else {
     paxos_accepted_to_preempted(serv->fileop.char_device_id, &acc, &out);
-    printf("paxos_accepted_to_preempted\n");
   }
   paxos_accepted_destroy(&acc);
   // accept handling over
 
   // new handle prepare
-  printf("new handle prepare\n");
   paxos_accepted* acc2 = handle_prepare(serv, &prepare);
-  printf("new handle prepare done\n");
   // new handle prepare over
 
-  printf("acc2->ballot: %d\n", acc2->ballot);
-  printf("acc2->value_ballot: %d\n", acc2->value_ballot);
+  // printf("acc2->ballot: %d\n", acc2->ballot);
+  // printf("acc2->value_ballot: %d\n", acc2->value_ballot);
   promise_iid = acc2->iid; // accepted to primise is done in kspace
   if (acc2->ballot > req->ballot || acc2->value_ballot > 0) {
-    printf("promise in\n");
     out.u.accepted.promise_iid = 0; // difference with stored accepted?
     // send_paxos_message(get_dev(a->peers), src, &out2); // send promise
-    printf("befor send to kspace\n");
     accepted_to_kspace(serv, src, acc2, sizeof(paxos_accepted));
-    printf("after send to kspace\n");
     free(acc2);
     // will be transformed to promise in kspace and sent
     promise_iid = 0;
@@ -349,7 +342,7 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
   //        out.u.accepted.value.paxos_value_len);
   paxos_message_destroy(&out);
   // paxos_message_destroy(&out2);
-  printf("handle accept end\n");
+  // printf("handle accept end\n");
 }
 
 static void
@@ -390,7 +383,7 @@ unpack_message(struct server* serv, size_t len)
       break;
     case ACCEPT:
       printf("\n\x1b[32mRECEIVED ACCEPT\x1b[0m\n");
-      handle_accept_log(received_msg->value);
+      // handle_accept_log(received_msg->value);
       handle_accept(serv, received_msg->src, received_msg->value);
       printf("\x1b[34mACCEPT DONE\x1b[0m\n");
       break;
@@ -515,12 +508,14 @@ main(int argc, char* argv[])
   stor = lmdb_storage_new(serv->fileop.char_device_id);
   if (lmdb_storage_open(stor) != 0) {
     printf("[user_acceptor] lmdb_storage_open failed\ngoto cleanup\n");
+    lmdb_storage_close(stor);
     goto cleanup;
   }
 
   char msg[] = "user_acceptor ready";
   if (acceptor_write_file(serv, msg, sizeof(msg))) {
     printf("[user_acceptor] acceptor_write_file failed");
+    lmdb_storage_close(stor);
     goto cleanup;
   }
 
@@ -530,7 +525,6 @@ main(int argc, char* argv[])
   return 0;
 
 cleanup:
-  lmdb_storage_close(stor);
   server_free(serv);
   free(stor);
   return 0;

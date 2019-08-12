@@ -140,7 +140,6 @@ eth_sendmsg(struct eth_connection* ethop, uint8_t dest_addr[ETH_ALEN],
   } else {
     char arr[20];
     mac_to_str(dest_addr, arr);
-    printf("Sent to %s", arr);
   }
 }
 

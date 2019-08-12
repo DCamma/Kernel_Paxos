@@ -146,7 +146,8 @@ make_client(struct client* cl)
   srand(seed.tv_usec);
   fileid = rand();
   fileid &= 0xffffff;
-  sprintf(file_name, "stats-%3.3dclients-%d.txt", cl->nclients, fileid);
+  sprintf(file_name, "/tmp/kpaxos_davide/stats-%3.3dclients-%d.txt",
+          cl->nclients, fileid);
   stats_persist(file_name);
   stats_destroy();
 
