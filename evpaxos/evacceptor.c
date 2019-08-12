@@ -95,35 +95,35 @@ resume_repeat(uint8_t* src, struct paxos_accepted* acc,
   paxos_accepted_destroy(acc);
 }
 
-static void test_accept(void) // TODO REMOVE THIS
-{
-  char                 s[] = "testmytest";
-  size_t               sizeof_cval = sizeof(struct client_value) + sizeof(s);
-  struct client_value* cval = pmalloc(sizeof_cval);
-  memset(cval, 0, sizeof_cval);
-  memcpy(cval->value, s, sizeof(s));
-  cval->size = sizeof(s);
-  cval->client_id = 0;
+// static void test_accept(void) // TODO REMOVE THIS
+// {
+//   char                 s[] = "testmytest";
+//   size_t               sizeof_cval = sizeof(struct client_value) + sizeof(s);
+//   struct client_value* cval = pmalloc(sizeof_cval);
+//   memset(cval, 0, sizeof_cval);
+//   memcpy(cval->value, s, sizeof(s));
+//   cval->size = sizeof(s);
+//   cval->client_id = 0;
 
-  paxos_log_debug("cval->value: %s", cval->value);
+//   paxos_log_debug("cval->value: %s", cval->value);
 
-  struct paxos_accept* acc = pmalloc(sizeof(struct paxos_accept) + sizeof_cval);
-  memset(acc, 0, sizeof(struct paxos_accept) + sizeof_cval);
+//   struct paxos_accept* acc = pmalloc(sizeof(struct paxos_accept) +
+//   sizeof_cval); memset(acc, 0, sizeof(struct paxos_accept) + sizeof_cval);
 
-  acc->value.paxos_value_len = sizeof_cval;
-  // memcpy(acc->value.paxos_value_val, cval, sizeof_cval);
-  acc->value.paxos_value_val = (char*)cval;
-  acc->iid = 4;
-  acc->promise_iid = 8;
-  acc->ballot = 9;
-  uint8_t src[] = { 8, 0, 39, 11, 10, 102 };
-  paxos_log_debug("tutto ok");
-  paxos_accept_to_userspace(acc, src);
-  // paxos_log_debug("send_accept %u %s", acc->value.paxos_value_len,
-  //                 acc->value.paxos_value_val);
-  pfree(cval);
-  pfree(acc);
-}
+//   acc->value.paxos_value_len = sizeof_cval;
+//   // memcpy(acc->value.paxos_value_val, cval, sizeof_cval);
+//   acc->value.paxos_value_val = (char*)cval;
+//   acc->iid = 4;
+//   acc->promise_iid = 8;
+//   acc->ballot = 9;
+//   uint8_t src[] = { 8, 0, 39, 11, 10, 102 };
+//   paxos_log_debug("tutto ok");
+//   paxos_accept_to_userspace(acc, src);
+//   // paxos_log_debug("send_accept %u %s", acc->value.paxos_value_len,
+//   //                 acc->value.paxos_value_val);
+//   pfree(cval);
+//   pfree(acc);
+// }
 
 static void
 handle_userspace_message(const char* buffer, int len)

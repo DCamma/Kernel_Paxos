@@ -36,10 +36,10 @@
 #include <sys/stat.h>
 
 // TODO: generate config from config file
-struct paxos_config paxos_config = { .trash_files = 1,
-                                     .lmdb_sync = 0,
-                                     .lmdb_env_path = "/tmp/acceptor",
-                                     .lmdb_mapsize = 10 * 1024 * 1024 };
+struct paxos_config paxos_config_test = { .trash_files = 1,
+                                          .lmdb_sync = 0,
+                                          .lmdb_env_path = "/tmp/acceptor",
+                                          .lmdb_mapsize = 10 * 1024 * 1024 };
 
 struct lmdb_storage
 {
@@ -100,13 +100,14 @@ lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
            mdb_strerror(result));
     goto error;
   }
-  if ((result = mdb_env_set_mapsize(env, paxos_config.lmdb_mapsize)) != 0) {
+  if ((result = mdb_env_set_mapsize(env, paxos_config_test.lmdb_mapsize)) !=
+      0) {
     printf("[storage_lmdb] Could not set lmdb map size. %s\n",
            mdb_strerror(result));
     goto error;
   }
   if ((result = mdb_env_open(
-         env, db_env_path, !paxos_config.lmdb_sync ? MDB_NOSYNC : 0,
+         env, db_env_path, !paxos_config_test.lmdb_sync ? MDB_NOSYNC : 0,
          S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) != 0) {
     printf("[storage_lmdb] Could not open lmdb environment at %s. %s\n",
            db_env_path, mdb_strerror(result));
@@ -166,14 +167,14 @@ lmdb_storage_open(struct lmdb_storage* s)
   char*       lmdb_env_path = NULL;
   struct stat sb;
   int         dir_exists, result;
-  size_t      lmdb_env_path_length = strlen(paxos_config.lmdb_env_path) + 16;
+  size_t lmdb_env_path_length = strlen(paxos_config_test.lmdb_env_path) + 16;
 
   lmdb_env_path = malloc(lmdb_env_path_length);
   snprintf(lmdb_env_path, lmdb_env_path_length, "%s_%d",
-           paxos_config.lmdb_env_path, s->acceptor_id);
+           paxos_config_test.lmdb_env_path, s->acceptor_id);
 
   // Trash files -- testing only
-  if (paxos_config.trash_files) {
+  if (paxos_config_test.trash_files) {
     char rm_command[600];
     sprintf(rm_command, "rm -r %s", lmdb_env_path);
     system(rm_command);

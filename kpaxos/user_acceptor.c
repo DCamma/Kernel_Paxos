@@ -271,7 +271,7 @@ handle_accept_log(char* buffer)
   printf("acc->promise_iid %d, acc->ballot %u\n", acc->promise_iid,
          acc->ballot);
   struct client_value* cval = (struct client_value*)acc->value.paxos_value_val;
-  printf("handle_accept_log: %d v: %s\n", cval->size, cval->value);
+  printf("handle_accept_log: %ld v: %s\n", cval->size, cval->value);
 }
 
 static void
@@ -303,8 +303,6 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
     printf("req->value.paxos_value_len %d\n", req->value.paxos_value_len);
     paxos_accept_to_accepted(serv->fileop.char_device_id, req, &out);
 
-    // printf("req.v.len: %u\n", req->value.paxos_value_len); // remove this
-
     // needed here to store accepted
     if (lmdb_storage_put(stor, &out.u.accepted) != 0) {
       lmdb_storage_tx_abort(stor);
@@ -327,8 +325,8 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
   printf("new handle prepare done\n");
   // new handle prepare over
 
-  printf("acc2->ballot: %ld\n", acc2->ballot);
-  printf("acc2->value_ballot: %ld\n", acc2->value_ballot);
+  printf("acc2->ballot: %d\n", acc2->ballot);
+  printf("acc2->value_ballot: %d\n", acc2->value_ballot);
   promise_iid = acc2->iid; // accepted to primise is done in kspace
   if (acc2->ballot > req->ballot || acc2->value_ballot > 0) {
     printf("promise in\n");
@@ -439,9 +437,7 @@ make_acceptor(struct server* serv)
 int
 acceptor_write_file(struct server* serv, char* msg, size_t msg_size)
 {
-  // printf("[user_acceptor] Acceptor write to LKM\n");
-
-  // Send the string to the LKM
+  // Send the buffer to the LKM
   int ret = write(serv->fileop.fd, msg, msg_size);
 
   if (ret < 0) {
@@ -476,22 +472,22 @@ check_args(int argc, char* argv[], struct server* serv)
   }
 }
 
-static void
-test_accept(struct server* serv)
-{
-  size_t total_size = sizeof(int);
-  char*  buffer = malloc(total_size);
-  if (buffer == NULL)
-    print_error("malloc returned NULL\n");
-  int    msg_type = SEND_ACCEPT;
-  size_t pad = sizeof(int);
-  memcpy(buffer, &msg_type, pad);
+// static void
+// test_accept(struct server* serv)
+// {
+//   size_t total_size = sizeof(int);
+//   char*  buffer = malloc(total_size);
+//   if (buffer == NULL)
+//     print_error("malloc returned NULL\n");
+//   int    msg_type = SEND_ACCEPT;
+//   size_t pad = sizeof(int);
+//   memcpy(buffer, &msg_type, pad);
 
-  if (acceptor_write_file(serv, buffer, total_size)) {
-    printf("[user_acceptor] acceptor_write_file failed");
-  }
-  free(buffer);
-}
+//   if (acceptor_write_file(serv, buffer, total_size)) {
+//     printf("[user_acceptor] acceptor_write_file failed");
+//   }
+//   free(buffer);
+// }
 
 int
 main(int argc, char* argv[])
@@ -504,6 +500,8 @@ main(int argc, char* argv[])
 
   check_args(argc, argv, serv);
 
+  // paxos_log_debug("\x1b[32m[user_acceptor] if_name %s\x1b[0m",
+  //                 serv->ethop.if_name);
   printf("[user_acceptor] if_name %s\n", serv->ethop.if_name);
   printf("[user_acceptor] chardevice /dev/paxos/kacceptor%c\n",
          serv->fileop.char_device_id + '0');
