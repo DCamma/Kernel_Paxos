@@ -114,7 +114,7 @@ $(BUILD_DIR)/user_acceptor.o: kpaxos/user_acceptor.c
 	$(CC) $(G_COMP) $(USR_FLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 user_acceptor: $(USRA_OBJS)
-	$(CC) $(USR_FLAGS) -g $(EXTRA_CFLAGS) -L$(HOME)/local/lib/ -Ikpaxos/include kpaxos/user_storage_lmdb.c -llmdb -c -o $(BUILD_DIR)/user_storage_lmdb.o
+	$(CC) $(USR_FLAGS) $(EXTRA_CFLAGS) -L$(HOME)/local/lib/ -Ikpaxos/include kpaxos/user_storage_lmdb.c -llmdb -c -o $(BUILD_DIR)/user_storage_lmdb.o
 	$(CC) -o build/$@ $(BUILD_DIR)/user_storage_lmdb.o -L$(HOME)/local/lib/ -llmdb $^
 
 ###########################################################################
