@@ -235,7 +235,6 @@ lmdb_storage_tx_commit(struct lmdb_storage* s)
   int result;
   assert(s->txn);
   result = mdb_txn_commit(s->txn);
-  printf("lmdb_storage_tx_commit result %d\n", result);
   s->txn = NULL;
   return result;
 }

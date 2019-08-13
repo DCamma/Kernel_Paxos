@@ -375,17 +375,17 @@ unpack_message(struct server* serv, size_t len)
       break;
 
     case PREPARE:
-      printf("\n\x1b[32mRECEIVED PREPARE\x1b[0m\n");
+      // printf("\n\x1b[32mRECEIVED PREPARE\x1b[0m\n");
       acc = handle_prepare(serv, (struct paxos_prepare*)received_msg->value);
       accepted_to_kspace(serv, received_msg->src, acc, sizeof(paxos_accepted));
       free(acc);
-      printf("\x1b[34mPREPARE DONE\x1b[0m\n");
+      // printf("\x1b[34mPREPARE DONE\x1b[0m\n");
       break;
     case ACCEPT:
-      printf("\n\x1b[32mRECEIVED ACCEPT\x1b[0m\n");
+      // printf("\n\x1b[32mRECEIVED ACCEPT\x1b[0m\n");
       // handle_accept_log(received_msg->value);
       handle_accept(serv, received_msg->src, received_msg->value);
-      printf("\x1b[34mACCEPT DONE\x1b[0m\n");
+      // printf("\x1b[34mACCEPT DONE\x1b[0m\n");
       break;
     case REPEAT:
       handle_repeat(serv, received_msg->src, (iid_t*)received_msg->value);
