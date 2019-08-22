@@ -1,6 +1,5 @@
 #include "chardevice_message.h"
 #include "getopt.h"
-// #include "paxos.h"
 #include "poll.h"
 #include "user_eth.h"
 #include "user_levent.h"
@@ -17,9 +16,9 @@ static int           stop = 1;
 struct lmdb_storage* stor;
 
 void
-print_error(char* str)
+print_error(char* str, int n_line)
 {
-  printf("\x1b[31mError\x1b[0m %s line: %d,  %s\n", __FILE__, __LINE__, str);
+  printf("\x1b[31mError\x1b[0m %s line: %d,  %s\n", __FILE__, n_line, str);
 }
 
 int acceptor_write_file(struct server* serv, char* msg, size_t msg_size);
@@ -149,7 +148,7 @@ accepted_to_kspace(struct server* serv, uint8_t* src, paxos_accepted* acc,
   size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + size_acc + len;
   char*  buffer = malloc(total_size);
   if (buffer == NULL)
-    print_error("malloc returned NULL\n");
+    print_error("malloc returned NULL\n", __LINE__);
   int    msg_type = PREPARE;
   size_t pad = sizeof(int);
   memcpy(buffer, &msg_type, pad);
@@ -173,7 +172,7 @@ repeat_to_kspace(struct server* serv, uint8_t* src, paxos_accepted* acc,
   size_t total_size = sizeof(int) + 6 * sizeof(uint8_t) + size_acc + len;
   char*  buffer = malloc(total_size);
   if (buffer == NULL)
-    print_error("malloc returned NULL\n");
+    print_error("malloc returned NULL\n", __LINE__);
   int    msg_type = REPEAT;
   size_t pad = sizeof(int);
   memcpy(buffer, &msg_type, pad);
@@ -205,7 +204,7 @@ accept_to_kspace(struct server* serv, uint8_t* src, paxos_message* out,
 
   char* buffer = malloc(total_size);
   if (buffer == NULL)
-    print_error("malloc returned NULL\n");
+    print_error("malloc returned NULL\n", __LINE__);
   int    msg_type = ACCEPT;
   size_t pad = sizeof(int);
   memcpy(buffer, &msg_type, pad);
@@ -225,13 +224,13 @@ static void
 store_paxos_accepted(paxos_accepted* acc)
 {
   if (lmdb_storage_tx_begin(stor) != 0)
-    print_error("lmdb_storage_tx_begin\n");
+    print_error("lmdb_storage_tx_begin\n", __LINE__);
   if (lmdb_storage_put(stor, acc) != 0) {
     lmdb_storage_tx_abort(stor);
-    print_error("lmdb_storage_put\n");
+    print_error("lmdb_storage_put\n", __LINE__);
   }
   if (lmdb_storage_tx_commit(stor) != 0)
-    print_error("lmdb_storage_tx_commit\n");
+    print_error("lmdb_storage_tx_commit\n", __LINE__);
 }
 
 static paxos_accepted*
@@ -240,7 +239,7 @@ handle_prepare(struct server* serv, paxos_prepare* prepare)
   paxos_accepted* acc = malloc(sizeof(paxos_accepted));
   memset(acc, 0, sizeof(paxos_accepted));
   if (lmdb_storage_tx_begin(stor) != 0)
-    print_error("lmdb_storage_tx_begin\n");
+    print_error("lmdb_storage_tx_begin\n", __LINE__);
 
   int found = lmdb_storage_get(stor, prepare->iid, acc);
   if (!found || acc->ballot <= prepare->ballot) {
@@ -249,12 +248,12 @@ handle_prepare(struct server* serv, paxos_prepare* prepare)
     acc->ballot = prepare->ballot;
     if (lmdb_storage_put(stor, acc) != 0) {
       lmdb_storage_tx_abort(stor);
-      print_error("storage_tx_abort\n");
+      print_error("storage_tx_abort\n", __LINE__);
     }
   }
 
   if (lmdb_storage_tx_commit(stor) != 0)
-    print_error("lmdb_storage_tx_commit\n");
+    print_error("lmdb_storage_tx_commit\n", __LINE__);
 
   // accepted_to_kspace(serv, src, &acc, sizeof(paxos_accepted));
   return acc;
@@ -289,7 +288,7 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
   paxos_accepted acc;
   memset(&acc, 0, sizeof(paxos_accepted));
   if (lmdb_storage_tx_begin(stor) != 0)
-    print_error("lmdb_storage_tx_begin\n");
+    print_error("lmdb_storage_tx_begin\n", __LINE__);
 
   int found_out1 = lmdb_storage_get(stor, req->iid, &acc);
   // printf("found_out1 %d\n", found_out1);
@@ -307,10 +306,10 @@ handle_accept(struct server* serv, uint8_t* src, char* buffer)
     // needed here to store accepted
     if (lmdb_storage_put(stor, &out.u.accepted) != 0) {
       lmdb_storage_tx_abort(stor);
-      print_error("storage_tx_abort\n");
+      print_error("storage_tx_abort\n", __LINE__);
     }
     if (lmdb_storage_tx_commit(stor) != 0)
-      print_error("lmdb_storage_tx_commit\n");
+      print_error("lmdb_storage_tx_commit\n", __LINE__);
   } else {
     paxos_accepted_to_preempted(serv->fileop.char_device_id, &acc, &out);
   }
@@ -351,12 +350,12 @@ handle_repeat(struct server* serv, uint8_t* src, iid_t* iid)
   paxos_accepted acc;
   memset(&acc, 0, sizeof(paxos_accepted));
   if (lmdb_storage_tx_begin(stor) != 0)
-    print_error("lmdb_storage_tx_begin\n");
+    print_error("lmdb_storage_tx_begin\n", __LINE__);
 
   int found = lmdb_storage_get(stor, *iid, &acc);
 
   if (lmdb_storage_tx_commit(stor) != 0)
-    print_error("lmdb_storage_tx_commit\n");
+    print_error("lmdb_storage_tx_commit\n", __LINE__);
 
   if (found) {
     repeat_to_kspace(serv, src, &acc, sizeof(paxos_accepted));
@@ -471,7 +470,7 @@ check_args(int argc, char* argv[], struct server* serv)
 //   size_t total_size = sizeof(int);
 //   char*  buffer = malloc(total_size);
 //   if (buffer == NULL)
-//     print_error("malloc returned NULL\n");
+//     print_error("malloc returned NULL\n",__LINE__);
 //   int    msg_type = SEND_ACCEPT;
 //   size_t pad = sizeof(int);
 //   memcpy(buffer, &msg_type, pad);
